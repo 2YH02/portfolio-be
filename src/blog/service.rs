@@ -9,7 +9,9 @@ pub async fn list_all(pool: &DbPool) -> Result<Vec<Post>, ServiceError> {
     let client = pool.get().await.map_err(|_| ServiceError::InternalServerError)?;
 
     let stmt = client
-        .prepare("SELECT id, title, body, tags, thumbnail, created_at FROM posts ORDER BY created_at DESC").await
+        .prepare(
+            "SELECT id, title, body, tags, thumbnail, created_at FROM posts ORDER BY created_at DESC"
+        ).await
         .map_err(|_| ServiceError::InternalServerError)?;
 
     let rows = client.query(&stmt, &[]).await.map_err(|_| ServiceError::InternalServerError)?;
@@ -70,11 +72,9 @@ pub async fn update(pool: &DbPool, post_id: i32, dto: UpdatePost) -> Result<Post
             "\
         UPDATE posts SET \
             title = COALESCE($1, title), \
-            body  = COALESCE($2, body), \
-            updated_at = NOW() \
+            body  = COALESCE($2, body) \
         WHERE id = $3 \
-        RETURNING id, title, body, created_at, updated_at\
-        "
+        RETURNING id, title, body, tags, thumbnail, created_at"
         ).await
         .map_err(|_| ServiceError::InternalServerError)?;
 
