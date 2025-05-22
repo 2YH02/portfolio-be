@@ -3,6 +3,7 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct CreatePost {
     pub title: String,
+    pub description: String,
     pub body: String,
     #[serde(default)]
     pub tags: Vec<String>,
@@ -13,4 +14,5 @@ pub struct CreatePost {
 pub struct UpdatePost {
     pub title: Option<String>,
     pub body: Option<String>,
+    pub description: Option<String>,
 }

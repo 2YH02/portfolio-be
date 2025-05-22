@@ -31,7 +31,7 @@ pub async fn list_all(
 
     let stmt = client
         .prepare(
-            "SELECT id, title, body, tags, thumbnail, created_at
+            "SELECT id, title, description, body, tags, thumbnail, created_at
              FROM posts
              ORDER BY created_at DESC
              OFFSET $1
@@ -59,7 +59,7 @@ pub async fn get_by_id(pool: &DbPool, post_id: i32) -> Result<Post, ServiceError
 
     let stmt = client
         .prepare(
-            "SELECT id, title, body, tags, thumbnail, created_at FROM posts WHERE id = $1"
+            "SELECT id, title, description, body, tags, thumbnail, created_at FROM posts WHERE id = $1"
         ).await
         .map_err(|_| ServiceError::InternalServerError)?;
 
@@ -83,14 +83,17 @@ pub async fn create(pool: &DbPool, dto: CreatePost) -> Result<Post, ServiceError
 
     let stmt = client
         .prepare(
-            "INSERT INTO posts (title, body, tags, thumbnail) \
-         VALUES ($1, $2, $3, $4) \
-         RETURNING id, title, body, tags, thumbnail, created_at"
+            "INSERT INTO posts (title, description, body, tags, thumbnail) \
+         VALUES ($1, $2, $3, $4, $5) \
+         RETURNING id, title, description, body, tags, thumbnail, created_at"
         ).await
         .map_err(|_| ServiceError::InternalServerError)?;
 
     let row = client
-        .query_one(&stmt, &[&dto.title, &dto.body, &dto.tags, &dto.thumbnail]).await
+        .query_one(
+            &stmt,
+            &[&dto.title, &dto.description, &dto.body, &dto.tags, &dto.thumbnail]
+        ).await
         .map_err(|_| ServiceError::InternalServerError)?;
 
     Ok(Post::from_row_ref(&row).unwrap())
@@ -104,14 +107,15 @@ pub async fn update(pool: &DbPool, post_id: i32, dto: UpdatePost) -> Result<Post
             "\
         UPDATE posts SET \
             title = COALESCE($1, title), \
-            body  = COALESCE($2, body) \
-        WHERE id = $3 \
-        RETURNING id, title, body, tags, thumbnail, created_at"
+            description  = COALESCE($2, description), \
+            body  = COALESCE($3, body) \
+        WHERE id = $4 \
+        RETURNING id, title, description, body, tags, thumbnail, created_at"
         ).await
         .map_err(|_| ServiceError::InternalServerError)?;
 
     let row = client
-        .query_one(&stmt, &[&dto.title, &dto.body, &post_id]).await
+        .query_one(&stmt, &[&dto.title, &dto.description, &dto.body, &post_id]).await
         .map_err(|_| ServiceError::NotFound)?;
 
     Ok(Post::from_row_ref(&row).unwrap())
