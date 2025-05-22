@@ -1,4 +1,5 @@
 use actix_web::{ get, post, put, delete, web, HttpResponse, Responder, ResponseError, HttpRequest };
+use serde::{ Deserialize };
 
 use crate::errors::ServiceError;
 use crate::blog::dto::{ CreatePost, UpdatePost };
@@ -8,14 +9,29 @@ use crate::config::AppConfig;
 use crate::user::model::{ User };
 use crate::user::handlers::{ require_admin };
 
+#[derive(Debug, Deserialize)]
+struct Pagination {
+    page: Option<u32>,
+}
+
 #[get("/posts")]
-pub async fn list_posts(req: HttpRequest, pool: web::Data<DbPool>) -> impl Responder {
+pub async fn list_posts(
+    req: HttpRequest,
+    pool: web::Data<DbPool>,
+    web::Query(pagination): web::Query<Pagination>
+) -> impl Responder {
     println!("▶️ list_posts 호출: {} {}", req.method(), req.uri());
 
-    match service::list_all(&pool).await {
-        Ok(posts) => {
-            println!("✅ list_posts 반환: {}개 포스트", posts.len());
-            HttpResponse::Ok().json(posts)
+    let page_num = pagination.page.unwrap_or(1).max(1);
+    let page_size = 12;
+    let offset = ((page_num as i64) - 1) * page_size;
+
+    println!("✅ page_num: {}, page_size: {}, offset: {}", page_num, page_size, offset);
+
+    match service::list_all(&pool, page_size, offset).await {
+        Ok(data) => {
+            println!("✅ list_posts 반환: {}개 포스트", data.posts.len());
+            HttpResponse::Ok().json(data)
         }
         Err(e) => {
             println!("⚠️ list_posts 에러: {:?}", e);

@@ -1,34 +1,66 @@
+use tokio_pg_mapper::FromTokioPostgresRow;
+use serde::Serialize;
+
 use crate::db::DbPool;
 use crate::blog::model::Post;
 use crate::blog::dto::{ CreatePost, UpdatePost };
 use crate::errors::ServiceError;
 
-use tokio_pg_mapper::FromTokioPostgresRow;
+#[derive(Serialize)]
+pub struct PostListResponse {
+    pub total_count: i64,
+    pub posts: Vec<Post>,
+}
 
-pub async fn list_all(pool: &DbPool) -> Result<Vec<Post>, ServiceError> {
+pub async fn list_all(
+    pool: &DbPool,
+    limit: i64,
+    offset: i64
+) -> Result<PostListResponse, ServiceError> {
     let client = pool.get().await.map_err(|_| ServiceError::InternalServerError)?;
+
+    let count_stmt = client
+        .prepare("SELECT COUNT(*) FROM posts").await
+        .map_err(|_| ServiceError::InternalServerError)?;
+
+    let count_row = client
+        .query_one(&count_stmt, &[]).await
+        .map_err(|_| ServiceError::InternalServerError)?;
+
+    let total_count: i64 = count_row.get(0);
 
     let stmt = client
         .prepare(
-            "SELECT id, title, body, tags, thumbnail, created_at FROM posts ORDER BY created_at DESC"
+            "SELECT id, title, body, tags, thumbnail, created_at
+             FROM posts
+             ORDER BY created_at DESC
+             OFFSET $1
+             LIMIT  $2"
         ).await
         .map_err(|_| ServiceError::InternalServerError)?;
 
-    let rows = client.query(&stmt, &[]).await.map_err(|_| ServiceError::InternalServerError)?;
+    let rows = client
+        .query(&stmt, &[&offset, &limit]).await
+        .map_err(|_| ServiceError::InternalServerError)?;
 
     let posts = rows
         .into_iter()
         .map(|row| Post::from_row_ref(&row).unwrap())
         .collect();
 
-    Ok(posts)
+    Ok(PostListResponse {
+        total_count,
+        posts,
+    })
 }
 
 pub async fn get_by_id(pool: &DbPool, post_id: i32) -> Result<Post, ServiceError> {
     let client = pool.get().await.map_err(|_| ServiceError::InternalServerError)?;
 
     let stmt = client
-        .prepare("SELECT id, title, body, tags, thumbnail, created_at FROM posts WHERE id = $1").await
+        .prepare(
+            "SELECT id, title, body, tags, thumbnail, created_at FROM posts WHERE id = $1"
+        ).await
         .map_err(|_| ServiceError::InternalServerError)?;
 
     let row = client.query_one(&stmt, &[&post_id]).await.map_err(|_| ServiceError::NotFound)?;
