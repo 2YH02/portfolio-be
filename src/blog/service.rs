@@ -28,7 +28,7 @@ pub async fn get_by_id(pool: &DbPool, post_id: i32) -> Result<Post, ServiceError
     let client = pool.get().await.map_err(|_| ServiceError::InternalServerError)?;
 
     let stmt = client
-        .prepare("SELECT id, title, body, created_at, updated_at FROM posts WHERE id = $1").await
+        .prepare("SELECT id, title, body, tags, thumbnail, created_at FROM posts WHERE id = $1").await
         .map_err(|_| ServiceError::InternalServerError)?;
 
     let row = client.query_one(&stmt, &[&post_id]).await.map_err(|_| ServiceError::NotFound)?;
