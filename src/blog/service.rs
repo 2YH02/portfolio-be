@@ -1,15 +1,35 @@
 use tokio_pg_mapper::FromTokioPostgresRow;
-use serde::Serialize;
+use reqwest::Client;
+use image::{ imageops::blur, DynamicImage };
+use image::codecs::jpeg::JpegEncoder;
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
 
 use crate::db::DbPool;
 use crate::blog::model::Post;
-use crate::blog::dto::{ CreatePost, UpdatePost };
+use crate::blog::dto::{ CreatePost, UpdatePost, PostListResponse };
 use crate::errors::ServiceError;
 
-#[derive(Serialize)]
-pub struct PostListResponse {
-    pub total_count: i64,
-    pub posts: Vec<Post>,
+pub async fn blur_image(url: &str) -> Result<String, ServiceError> {
+    let response = Client::new()
+        .get(url)
+        .send().await
+        .map_err(|e| ServiceError::BadRequest(format!("이미지 다운로드 실패: {}", e)))?;
+    let bytes = response
+        .bytes().await
+        .map_err(|e| ServiceError::BadRequest(format!("이미지 바이트 읽기 실패: {}", e)))?;
+
+    let img: DynamicImage = image
+        ::load_from_memory(&bytes)
+        .map_err(|_| ServiceError::InternalServerError)?;
+    let blurred = blur(&img, 10.0);
+
+    let mut buf = Vec::new();
+    let mut encoder = JpegEncoder::new_with_quality(&mut buf, 60);
+    encoder.encode_image(&blurred).map_err(|_| ServiceError::InternalServerError)?;
+
+    let b64 = STANDARD.encode(&buf);
+    Ok(format!("data:image/jpeg;base64,{}", b64))
 }
 
 pub async fn list_all(
@@ -92,7 +112,14 @@ pub async fn create(pool: &DbPool, dto: CreatePost) -> Result<Post, ServiceError
     let row = client
         .query_one(
             &stmt,
-            &[&dto.title, &dto.description, &dto.body, &dto.tags, &dto.thumbnail, &dto.thumbnail_blur]
+            &[
+                &dto.title,
+                &dto.description,
+                &dto.body,
+                &dto.tags,
+                &dto.thumbnail,
+                &dto.thumbnail_blur,
+            ]
         ).await
         .map_err(|_| ServiceError::InternalServerError)?;
 

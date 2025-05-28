@@ -2,7 +2,7 @@ use actix_web::{ get, post, put, delete, web, HttpResponse, Responder, ResponseE
 use serde::{ Deserialize };
 
 use crate::errors::ServiceError;
-use crate::blog::dto::{ CreatePost, UpdatePost };
+use crate::blog::dto::{ CreatePost, UpdatePost, BlurRequest, BlurResponse };
 use crate::blog::service;
 use crate::db::DbPool;
 use crate::config::AppConfig;
@@ -12,6 +12,22 @@ use crate::user::handlers::{ require_admin };
 #[derive(Debug, Deserialize)]
 struct Pagination {
     page: Option<u32>,
+}
+
+#[post("/posts/blur")]
+pub async fn blur_image(web::Json(dto): web::Json<BlurRequest>) -> impl Responder {
+    println!("▶️ blur_image_handler 호출: url={}", dto.url);
+
+    match service::blur_image(&dto.url).await {
+        Ok(data_url) => {
+            println!("✅ blur_image 성공: url={}, length={}", dto.url, data_url.len());
+            HttpResponse::Ok().json(BlurResponse { data_url })
+        }
+        Err(e) => {
+            println!("⚠️ blur_image 실패: {:?}", e);
+            e.error_response()
+        }
+    }
 }
 
 #[get("/posts")]
