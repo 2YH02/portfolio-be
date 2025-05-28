@@ -11,5 +11,6 @@ pub struct Post {
     pub body: String,
     pub tags: Vec<String>,
     pub thumbnail: String,
+    pub thumbnail_blur: String,
     pub created_at: NaiveDateTime,
 }

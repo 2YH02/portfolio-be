@@ -8,6 +8,7 @@ pub struct CreatePost {
     #[serde(default)]
     pub tags: Vec<String>,
     pub thumbnail: String,
+    pub thumbnail_blur: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

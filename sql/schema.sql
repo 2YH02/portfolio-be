@@ -8,5 +8,6 @@ CREATE TABLE public.posts (
   body             TEXT             NOT NULL,
   tags             TEXT[]           NOT NULL DEFAULT '{}',
   thumbnail        TEXT             NOT NULL DEFAULT '',
+  thumbnail_blur   TEXT             NOT NULL DEFAULT '/placeholder_image.png',
   created_at       TIMESTAMP        NOT NULL DEFAULT NOW()
 );
