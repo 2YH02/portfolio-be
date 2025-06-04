@@ -38,13 +38,19 @@ pub async fn list_posts(
 ) -> impl Responder {
     println!("▶️ list_posts 호출: {} {}", req.method(), req.uri());
 
-    let page_num = pagination.page.unwrap_or(1).max(1);
     let page_size = 12;
-    let offset = ((page_num as i64) - 1) * page_size;
 
-    println!("✅ page_num: {}, page_size: {}, offset: {}", page_num, page_size, offset);
+    let (limit, offset) = if let Some(page_num) = pagination.page {
+        let page_num = page_num.max(1);
+        let offset = ((page_num as i64) - 1) * page_size;
+        println!("✅ 페이징 조회: page_num={}, offset={}", page_num, offset);
+        (page_size, offset)
+    } else {
+        println!("✅ 전체 조회 실행");
+        (1000, 0)
+    };
 
-    match service::list_all(&pool, page_size, offset).await {
+    match service::list_all(&pool, limit, offset).await {
         Ok(data) => {
             println!("✅ list_posts 반환: {}개 포스트", data.posts.len());
             HttpResponse::Ok().json(data)
