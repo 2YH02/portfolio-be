@@ -19,7 +19,7 @@ jobs:
 
       - name: Start PostgreSQL via Docker Compose
         run: |
-          docker-compose up -d db
+          docker compose up -d db
           echo "Waiting for PostgreSQL to become ready..."
           for i in {1..20}; do
             if docker exec $(docker ps -qf "name=db") pg_isready -U postgres; then
@@ -48,7 +48,7 @@ jobs:
 
       - name: Tear down Docker Compose
         if: always()
-        run: docker-compose down -v
+        run: docker compose down -v
 
   deploy:
     name: Deploy to Railway
