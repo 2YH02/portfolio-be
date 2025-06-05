@@ -1,0 +1,69 @@
+name: CI & CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Run Rust Tests with Docker Compose DB
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Start PostgreSQL via Docker Compose
+        run: |
+          docker-compose up -d db
+          echo "Waiting for PostgreSQL to become ready..."
+          for i in {1..20}; do
+            if docker exec $(docker ps -qf "name=db") pg_isready -U postgres; then
+              echo "PostgreSQL is ready!"
+              break
+            fi
+            echo "PostgreSQL not ready yet… retry in 3s"
+            sleep 3
+          done
+
+      - name: Set up Rust
+        uses: actions/setup-rust@v1
+        with:
+          rust-version: stable
+
+      - name: Run cargo test
+        env:
+          PG__URL: ${{ secrets.PG__URL }}
+          PG__USER: ${{ secrets.PG__USER }}
+          PG__PASSWORD: ${{ secrets.PG__PASSWORD }}
+          PG__HOST: ${{ secrets.PG__HOST }}
+          PG__PORT: ${{ secrets.PG__PORT }}
+          PG__DBNAME: ${{ secrets.PG__DBNAME }}
+        run: |
+          cargo test --verbose
+
+      - name: Tear down Docker Compose
+        if: always()
+        run: docker-compose down -v
+
+  deploy:
+    name: Deploy to Railway
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    container: ghcr.io/railwayapp/cli:latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Login to Railway & Deploy
+        run: |
+          railway login --token "$RAILWAY_TOKEN"
+          railway up --service portfolio --yes
