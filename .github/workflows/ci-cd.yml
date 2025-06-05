@@ -32,7 +32,7 @@ jobs:
           docker compose up -d db
           echo "Waiting for PostgreSQL to become ready..."
           for i in {1..20}; do
-            if docker compose exec db psql -U $PG__USER -d $PG__DBNAME -c "SELECT 1" > /dev/null 2>&1; then
+            if docker compose exec db psql -U "$PG__USER" -d "$PG__DBNAME" -c "SELECT 1" > /dev/null 2>&1; then
               echo "✅ PostgreSQL is ready!"
               break
             fi
@@ -74,7 +74,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Login to Railway & Deploy
+      - name: Deploy to Railway
         run: |
-          railway login --token "$RAILWAY_TOKEN"
           railway up --service portfolio --yes
