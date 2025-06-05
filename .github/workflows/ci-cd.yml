@@ -30,6 +30,10 @@ jobs:
             sleep 3
           done
 
+      - name: Debug DB container logs
+        if: failure()
+        run: docker compose logs db
+
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
