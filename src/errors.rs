@@ -14,8 +14,7 @@ pub enum ServiceError {
     #[display("찾을 수 없습니다")]
     NotFound,
 
-    #[display("서버 내부 오류")]
-    InternalServerError,
+    #[display("서버 내부 오류")] InternalServerError(String),
 }
 
 #[derive(Serialize)]
@@ -29,7 +28,7 @@ impl ResponseError for ServiceError {
             ServiceError::BadRequest(_) => StatusCode::BAD_REQUEST,
             ServiceError::Unauthorized => StatusCode::UNAUTHORIZED,
             ServiceError::NotFound => StatusCode::NOT_FOUND,
-            ServiceError::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
+            ServiceError::InternalServerError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 

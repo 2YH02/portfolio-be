@@ -21,12 +21,12 @@ pub async fn blur_image(url: &str) -> Result<String, ServiceError> {
 
     let img: DynamicImage = image
         ::load_from_memory(&bytes)
-        .map_err(|_| ServiceError::InternalServerError)?;
+        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
     let blurred = blur(&img, 10.0);
 
     let mut buf = Vec::new();
     let mut encoder = JpegEncoder::new_with_quality(&mut buf, 60);
-    encoder.encode_image(&blurred).map_err(|_| ServiceError::InternalServerError)?;
+    encoder.encode_image(&blurred).map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
 
     let b64 = STANDARD.encode(&buf);
     Ok(format!("data:image/jpeg;base64,{}", b64))
@@ -37,15 +37,15 @@ pub async fn list_all(
     limit: i64,
     offset: i64
 ) -> Result<PostListResponse, ServiceError> {
-    let client = pool.get().await.map_err(|_| ServiceError::InternalServerError)?;
+    let client = pool.get().await.map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
 
     let count_stmt = client
         .prepare("SELECT COUNT(*) FROM posts").await
-        .map_err(|_| ServiceError::InternalServerError)?;
+        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
 
     let count_row = client
         .query_one(&count_stmt, &[]).await
-        .map_err(|_| ServiceError::InternalServerError)?;
+        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
 
     let total_count: i64 = count_row.get(0);
 
@@ -57,11 +57,11 @@ pub async fn list_all(
              OFFSET $1
              LIMIT  $2"
         ).await
-        .map_err(|_| ServiceError::InternalServerError)?;
+        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
 
     let rows = client
         .query(&stmt, &[&offset, &limit]).await
-        .map_err(|_| ServiceError::InternalServerError)?;
+        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
 
     let posts = rows
         .into_iter()
@@ -75,13 +75,13 @@ pub async fn list_all(
 }
 
 pub async fn get_by_id(pool: &DbPool, post_id: i32) -> Result<Post, ServiceError> {
-    let client = pool.get().await.map_err(|_| ServiceError::InternalServerError)?;
+    let client = pool.get().await.map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
 
     let stmt = client
         .prepare(
             "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, created_at FROM posts WHERE id = $1"
         ).await
-        .map_err(|_| ServiceError::InternalServerError)?;
+        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
 
     let row = client.query_one(&stmt, &[&post_id]).await.map_err(|_| ServiceError::NotFound)?;
 
@@ -99,7 +99,7 @@ pub async fn create(pool: &DbPool, dto: CreatePost) -> Result<Post, ServiceError
         return Err(ServiceError::BadRequest("대표 이미지를 설정해주세요".into()));
     }
 
-    let client = pool.get().await.map_err(|_| ServiceError::InternalServerError)?;
+    let client = pool.get().await.map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
 
     let stmt = client
         .prepare(
@@ -107,7 +107,7 @@ pub async fn create(pool: &DbPool, dto: CreatePost) -> Result<Post, ServiceError
          VALUES ($1, $2, $3, $4, $5, $6) \
          RETURNING id, title, description, body, tags, thumbnail, thumbnail_blur, created_at"
         ).await
-        .map_err(|_| ServiceError::InternalServerError)?;
+        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
 
     let row = client
         .query_one(
@@ -121,13 +121,13 @@ pub async fn create(pool: &DbPool, dto: CreatePost) -> Result<Post, ServiceError
                 &dto.thumbnail_blur,
             ]
         ).await
-        .map_err(|_| ServiceError::InternalServerError)?;
+        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
 
     Ok(Post::from_row_ref(&row).unwrap())
 }
 
 pub async fn update(pool: &DbPool, post_id: i32, dto: UpdatePost) -> Result<Post, ServiceError> {
-    let client = pool.get().await.map_err(|_| ServiceError::InternalServerError)?;
+    let client = pool.get().await.map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
 
     let stmt = client
         .prepare(
@@ -139,7 +139,7 @@ pub async fn update(pool: &DbPool, post_id: i32, dto: UpdatePost) -> Result<Post
         WHERE id = $4 \
         RETURNING id, title, description, body, tags, thumbnail, thumbnail_blur, created_at"
         ).await
-        .map_err(|_| ServiceError::InternalServerError)?;
+        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
 
     let row = client
         .query_one(&stmt, &[&dto.title, &dto.description, &dto.body, &post_id]).await
@@ -149,13 +149,15 @@ pub async fn update(pool: &DbPool, post_id: i32, dto: UpdatePost) -> Result<Post
 }
 
 pub async fn delete(pool: &DbPool, post_id: i32) -> Result<(), ServiceError> {
-    let client = pool.get().await.map_err(|_| ServiceError::InternalServerError)?;
+    let client = pool.get().await.map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
 
     let stmt = client
         .prepare("DELETE FROM posts WHERE id = $1").await
-        .map_err(|_| ServiceError::InternalServerError)?;
+        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
 
-    client.execute(&stmt, &[&post_id]).await.map_err(|_| ServiceError::InternalServerError)?;
+    client
+        .execute(&stmt, &[&post_id]).await
+        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
 
     Ok(())
 }
