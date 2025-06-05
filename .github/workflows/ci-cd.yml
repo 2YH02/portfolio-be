@@ -17,22 +17,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Create .env file for Docker Compose
+        run: |
+          echo "PG__URL=${{ secrets.PG__URL }}" >> .env
+          echo "PG__USER=${{ secrets.PG__USER }}" >> .env
+          echo "PG__PASSWORD=${{ secrets.PG__PASSWORD }}" >> .env
+          echo "PG__HOST=${{ secrets.PG__HOST }}" >> .env
+          echo "PG__PORT=${{ secrets.PG__PORT }}" >> .env
+          echo "PG__DBNAME=${{ secrets.PG__DBNAME }}" >> .env
+          echo "PG__POOL__MAX_SIZE=${{ secrets.PG__POOL__MAX_SIZE }}" >> .env
+
       - name: Start PostgreSQL via Docker Compose
         run: |
           docker compose up -d db
           echo "Waiting for PostgreSQL to become ready..."
           for i in {1..20}; do
-            if docker exec $(docker ps -qf "name=db") pg_isready -U postgres; then
-              echo "PostgreSQL is ready!"
+            if docker compose exec db psql -U $PG__USER -d $PG__DBNAME -c "SELECT 1" > /dev/null 2>&1; then
+              echo "✅ PostgreSQL is ready!"
               break
             fi
-            echo "PostgreSQL not ready yet… retry in 3s"
+            echo "⏳ PostgreSQL not ready yet… retry in 3s"
             sleep 3
           done
-
-      - name: Debug DB container logs
-        if: failure()
-        run: docker compose logs db
 
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
