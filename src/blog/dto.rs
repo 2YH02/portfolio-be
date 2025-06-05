@@ -13,7 +13,7 @@ pub struct CreatePost {
     pub thumbnail_blur: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize, Deserialize)] 
 pub struct PostListResponse {
     pub total_count: i64,
     pub posts: Vec<Post>,
