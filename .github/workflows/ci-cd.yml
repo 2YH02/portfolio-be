@@ -32,8 +32,6 @@ jobs:
 
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          rust-version: stable
 
       - name: Run cargo test
         env:
@@ -43,6 +41,9 @@ jobs:
           PG__HOST: ${{ secrets.PG__HOST }}
           PG__PORT: ${{ secrets.PG__PORT }}
           PG__DBNAME: ${{ secrets.PG__DBNAME }}
+          PG__POOL__MAX_SIZE: ${{ secrets.PG__POOL__MAX_SIZE }}
+          ADMIN_USER: ${{ secrets.ADMIN_USER }}
+          ADMIN_PASS: ${{ secrets.ADMIN_PASS }}
         run: |
           cargo test --verbose
 
