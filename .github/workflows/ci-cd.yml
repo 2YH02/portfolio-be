@@ -81,4 +81,4 @@ jobs:
 
       - name: Deploy to Railway
         run: |
-          railway up --service portfolio
+          railway up --service portfolio-be
