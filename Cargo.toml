@@ -18,6 +18,7 @@ chrono = { version = "0.4.41", features = ["serde"] }
 tracing = "0.1.41"
 image = "0.25.6"
 reqwest = "0.12.16"
+env_logger = "0.11.8"
 
 [dev-dependencies]
 actix-rt = "2.10.0"
