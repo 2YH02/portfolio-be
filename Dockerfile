@@ -1,7 +1,7 @@
 FROM rust:1.86 AS builder
 WORKDIR /usr/src/blog
 COPY . .
-RUN cargo install --path .
+RUN cargo install --locked --path .
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates libssl3 && rm -rf /var/lib/apt/lists/*
