@@ -22,8 +22,8 @@ services:
       PG__USER: ${PG__USER}
       PG__PASSWORD: ${PG__PASSWORD}
       PG__DBNAME: ${PG__DBNAME}
-      PG__HOST: ${PG__HOST}
-      PG__URL: ${PG__URL}
+      PG__HOST: db
+      PG__URL: postgresql://${PG__USER}:${PG__PASSWORD}@db:5432/${PG__DBNAME}
       PG__POOL__MAX_SIZE: ${PG__POOL__MAX_SIZE}
 
       ADMIN_USER: ${ADMIN_USER}
