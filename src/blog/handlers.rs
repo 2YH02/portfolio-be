@@ -6,12 +6,19 @@ use crate::blog::dto::{ CreatePost, UpdatePost, BlurRequest, BlurResponse };
 use crate::blog::service;
 use crate::db::DbPool;
 use crate::config::AppConfig;
-use crate::user::model::{ User };
-use crate::user::handlers::{ require_admin };
+use crate::user::model::{ User, Role };
+use crate::user::handlers::{ require_admin, AUTH_COOKIE };
 
 #[derive(Debug, Deserialize)]
 struct Pagination {
     page: Option<u32>,
+}
+
+fn auth_from_cookie(req: &HttpRequest, cfg: &AppConfig) -> User {
+    match req.cookie(AUTH_COOKIE) {
+        Some(c) => User::from_jwt(c.value(), &cfg.jwt_secret),
+        None => User { username: String::new(), role: Role::Guest },
+    }
 }
 
 #[post("/posts/blur")]
@@ -60,12 +67,7 @@ pub async fn create_post(
     pool: web::Data<DbPool>,
     web::Json(dto): web::Json<CreatePost>
 ) -> impl Responder {
-    let auth_header = req
-        .headers()
-        .get("Authorization")
-        .and_then(|h| h.to_str().ok());
-
-    let user = User::from_basic_auth(auth_header, &cfg.admin_user, &cfg.admin_pass);
+    let user = auth_from_cookie(&req, &cfg);
     if !require_admin(&user) {
         return ServiceError::Unauthorized.error_response();
     }
@@ -86,12 +88,7 @@ pub async fn update_post(
 ) -> impl Responder {
     let id = path.into_inner();
 
-    let auth_header = req
-        .headers()
-        .get("Authorization")
-        .and_then(|h| h.to_str().ok());
-
-    let user = User::from_basic_auth(auth_header, &cfg.admin_user, &cfg.admin_pass);
+    let user = auth_from_cookie(&req, &cfg);
     if !require_admin(&user) {
         return ServiceError::Unauthorized.error_response();
     }
@@ -111,12 +108,7 @@ pub async fn delete_post(
 ) -> impl Responder {
     let id = path.into_inner();
 
-    let auth_header = req
-        .headers()
-        .get("Authorization")
-        .and_then(|h| h.to_str().ok());
-
-    let user = User::from_basic_auth(auth_header, &cfg.admin_user, &cfg.admin_pass);
+    let user = auth_from_cookie(&req, &cfg);
     if !require_admin(&user) {
         return ServiceError::Unauthorized.error_response();
     }

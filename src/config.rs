@@ -12,6 +12,12 @@ pub struct AppConfig {
     #[confik(default = "secret".to_string())]
     pub admin_pass: String,
 
+    #[confik(default = "change-me-in-production".to_string())]
+    pub jwt_secret: String,
+
+    #[confik(default = false)]
+    pub cookie_secure: bool,
+
     #[confik(from = DbConfig)]
     pub pg: deadpool_postgres::Config,
 }

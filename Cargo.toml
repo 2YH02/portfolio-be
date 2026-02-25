@@ -10,6 +10,8 @@ deadpool-postgres = { version = "0.14.1", features = ["serde"] }
 derive_more = { version = "2.0.1", features = ["display", "error", "from"] }
 dotenvy = "0.15.7"
 serde = "1.0.219"
+serde_json = "1.0.140"
+jsonwebtoken = "9"
 tokio-pg-mapper = "0.2.0"
 tokio-pg-mapper-derive = "0.2.0"
 tokio-postgres = { version = "0.7.13", features = ["with-serde_json-1", "with-chrono-0_4"] }
@@ -22,4 +24,3 @@ env_logger = "0.11.8"
 
 [dev-dependencies]
 actix-rt = "2.10.0"
-serde_json = "1.0.140"

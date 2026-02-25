@@ -1,43 +1,69 @@
 use actix_web::{ get, post, HttpRequest, HttpResponse, Responder, web };
+use actix_web::cookie::{ Cookie, SameSite };
+use jsonwebtoken::{ encode, EncodingKey, Header };
+use std::time::{ SystemTime, UNIX_EPOCH };
+
 use crate::config::AppConfig;
-use crate::user::model::{ User, Role };
-use crate::user::dto::{ MeRequest };
+use crate::user::model::{ Claims, User, Role };
+use crate::user::dto::{ AuthResponse, MeRequest };
+
+pub const AUTH_COOKIE: &str = "admin_token";
 
 #[get("/me")]
 pub async fn me(req: HttpRequest, cfg: web::Data<AppConfig>) -> impl Responder {
     tracing::debug!("{} {}", req.method(), req.uri());
 
-    let auth_header = req
-        .headers()
-        .get("Authorization")
-        .and_then(|hv| hv.to_str().ok());
-
-    let user = User::from_basic_auth(auth_header, &cfg.admin_user, &cfg.admin_pass);
+    let user = match req.cookie(AUTH_COOKIE) {
+        Some(c) => User::from_jwt(c.value(), &cfg.jwt_secret),
+        None => User { username: String::new(), role: Role::Guest },
+    };
     tracing::debug!("auth result: role={:?}", user.role);
 
     HttpResponse::Ok().json(user)
 }
 
 #[post("/auth")]
-pub async fn auth(web::Json(dto): web::Json<MeRequest>) -> impl Responder {
+pub async fn auth(
+    web::Json(dto): web::Json<MeRequest>,
+    cfg: web::Data<AppConfig>
+) -> impl Responder {
     tracing::debug!("auth attempt: user={}", dto.user);
 
-    let admin_user = std::env::var("ADMIN_USER").unwrap_or_default();
-    let admin_pass = std::env::var("ADMIN_PASS").unwrap_or_default();
+    if dto.user != cfg.admin_user || dto.password != cfg.admin_pass {
+        return HttpResponse::Unauthorized().finish();
+    }
 
-    let resp_user = if dto.user == admin_user && dto.password == admin_pass {
-        User {
-            username: dto.user.clone(),
-            role: Role::Admin,
-        }
-    } else {
-        User {
-            username: String::new(),
-            role: Role::Guest,
+    let exp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as usize + 86_400;
+
+    let claims = Claims { sub: dto.user.clone(), role: "Admin".to_string(), exp };
+
+    let token = match encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(cfg.jwt_secret.as_bytes()),
+    ) {
+        Ok(t) => t,
+        Err(e) => {
+            tracing::error!("JWT encode error: {e}");
+            return HttpResponse::InternalServerError().finish();
         }
     };
 
-    HttpResponse::Ok().json(resp_user)
+    let same_site = if cfg.cookie_secure { SameSite::None } else { SameSite::Lax };
+    let cookie = Cookie::build(AUTH_COOKIE, token)
+        .http_only(true)
+        .secure(cfg.cookie_secure)
+        .same_site(same_site)
+        .path("/")
+        .max_age(actix_web::cookie::time::Duration::seconds(86_400))
+        .finish();
+
+    HttpResponse::Ok()
+        .cookie(cookie)
+        .json(AuthResponse { username: dto.user, role: "Admin".to_string() })
 }
 
 pub fn require_admin(user: &User) -> bool {
