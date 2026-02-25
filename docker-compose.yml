@@ -28,6 +28,8 @@ services:
 
       ADMIN_USER: ${ADMIN_USER}
       ADMIN_PASS: ${ADMIN_PASS}
+      JWT_SECRET: ${JWT_SECRET}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
     depends_on:
       - db
     ports:

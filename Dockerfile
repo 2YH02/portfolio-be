@@ -1,4 +1,4 @@
-FROM rust:1.86 AS builder
+FROM rust:1.88 AS builder
 WORKDIR /usr/src/blog
 COPY . .
 RUN cargo install --locked --path .
