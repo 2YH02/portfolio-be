@@ -59,6 +59,7 @@ jobs:
           PG__POOL__MAX_SIZE: ${{ secrets.PG__POOL__MAX_SIZE }}
           ADMIN_USER: ${{ secrets.ADMIN_USER }}
           ADMIN_PASS: ${{ secrets.ADMIN_PASS }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: |
           cargo test --quiet
 
