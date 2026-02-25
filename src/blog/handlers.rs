@@ -34,7 +34,7 @@ pub async fn list_posts(
         let offset = ((page_num as i64) - 1) * page_size;
         (page_size, offset)
     } else {
-        (1000, 0)
+        (page_size, 0)
     };
 
     match service::list_all(&pool, limit, offset).await {

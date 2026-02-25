@@ -65,8 +65,8 @@ pub async fn list_all(
 
     let posts = rows
         .into_iter()
-        .map(|row| Post::from_row_ref(&row).unwrap())
-        .collect();
+        .map(|row| Post::from_row_ref(&row).map_err(|e| ServiceError::InternalServerError(e.to_string())))
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok(PostListResponse {
         total_count,
@@ -85,7 +85,7 @@ pub async fn get_by_id(pool: &DbPool, post_id: i32) -> Result<Post, ServiceError
 
     let row = client.query_one(&stmt, &[&post_id]).await.map_err(|_| ServiceError::NotFound)?;
 
-    Ok(Post::from_row_ref(&row).unwrap())
+    Post::from_row_ref(&row).map_err(|e| ServiceError::InternalServerError(e.to_string()))
 }
 
 pub async fn create(pool: &DbPool, dto: CreatePost) -> Result<Post, ServiceError> {
@@ -123,7 +123,7 @@ pub async fn create(pool: &DbPool, dto: CreatePost) -> Result<Post, ServiceError
         ).await
         .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
 
-    Ok(Post::from_row_ref(&row).unwrap())
+    Post::from_row_ref(&row).map_err(|e| ServiceError::InternalServerError(e.to_string()))
 }
 
 pub async fn update(pool: &DbPool, post_id: i32, dto: UpdatePost) -> Result<Post, ServiceError> {
@@ -145,7 +145,7 @@ pub async fn update(pool: &DbPool, post_id: i32, dto: UpdatePost) -> Result<Post
         .query_one(&stmt, &[&dto.title, &dto.description, &dto.body, &post_id]).await
         .map_err(|_| ServiceError::NotFound)?;
 
-    Ok(Post::from_row_ref(&row).unwrap())
+    Post::from_row_ref(&row).map_err(|e| ServiceError::InternalServerError(e.to_string()))
 }
 
 pub async fn delete(pool: &DbPool, post_id: i32) -> Result<(), ServiceError> {
