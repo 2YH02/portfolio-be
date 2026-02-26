@@ -1,12 +1,10 @@
-use actix_web::{ get, post, put, delete, web, HttpResponse, Responder, ResponseError, HttpRequest };
+use actix_web::{ get, post, put, delete, web, HttpResponse, Responder, ResponseError };
 use serde::{ Deserialize };
 
-use crate::errors::ServiceError;
 use crate::blog::dto::{ CreatePost, UpdatePost, BlurRequest, BlurResponse };
 use crate::blog::service;
 use crate::db::DbPool;
-use crate::config::AppConfig;
-use crate::user::handlers::{ require_admin, auth_from_cookie };
+use crate::user::handlers::Admin;
 
 #[derive(Debug, Deserialize)]
 struct Pagination {
@@ -54,16 +52,10 @@ pub async fn get_post(pool: web::Data<DbPool>, path: web::Path<i32>) -> impl Res
 
 #[post("/posts")]
 pub async fn create_post(
-    req: HttpRequest,
-    cfg: web::Data<AppConfig>,
+    _: Admin,
     pool: web::Data<DbPool>,
     web::Json(dto): web::Json<CreatePost>
 ) -> impl Responder {
-    let user = auth_from_cookie(&req, &cfg);
-    if !require_admin(&user) {
-        return ServiceError::Unauthorized.error_response();
-    }
-
     match service::create(&pool, dto).await {
         Ok(post) => { HttpResponse::Created().json(post) }
         Err(e) => { e.error_response() }
@@ -72,19 +64,12 @@ pub async fn create_post(
 
 #[put("/posts/{id}")]
 pub async fn update_post(
-    req: HttpRequest,
-    cfg: web::Data<AppConfig>,
+    _: Admin,
     pool: web::Data<DbPool>,
     path: web::Path<i32>,
     web::Json(dto): web::Json<UpdatePost>
 ) -> impl Responder {
     let id = path.into_inner();
-
-    let user = auth_from_cookie(&req, &cfg);
-    if !require_admin(&user) {
-        return ServiceError::Unauthorized.error_response();
-    }
-
     match service::update(&pool, id, dto).await {
         Ok(post) => { HttpResponse::Ok().json(post) }
         Err(e) => { e.error_response() }
@@ -93,18 +78,11 @@ pub async fn update_post(
 
 #[delete("/posts/{id}")]
 pub async fn delete_post(
-    req: HttpRequest,
-    cfg: web::Data<AppConfig>,
+    _: Admin,
     pool: web::Data<DbPool>,
     path: web::Path<i32>
 ) -> impl Responder {
     let id = path.into_inner();
-
-    let user = auth_from_cookie(&req, &cfg);
-    if !require_admin(&user) {
-        return ServiceError::Unauthorized.error_response();
-    }
-
     match service::delete(&pool, id).await {
         Ok(_) => { HttpResponse::NoContent().finish() }
         Err(e) => { e.error_response() }

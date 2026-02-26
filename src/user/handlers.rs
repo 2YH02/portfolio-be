@@ -1,9 +1,13 @@
 use actix_web::{ get, post, HttpRequest, HttpResponse, Responder, web };
 use actix_web::cookie::{ Cookie, SameSite };
+use actix_web::dev::Payload;
+use actix_web::FromRequest;
 use jsonwebtoken::{ encode, EncodingKey, Header };
+use std::future::{ ready, Ready };
 use std::time::{ SystemTime, UNIX_EPOCH };
 
 use crate::config::AppConfig;
+use crate::errors::ServiceError;
 use crate::user::model::{ Claims, User, Role };
 use crate::user::dto::{ AuthResponse, MeRequest };
 
@@ -70,6 +74,24 @@ pub async fn auth(
         .json(AuthResponse { username: dto.user, role: "Admin".to_string() })
 }
 
-pub fn require_admin(user: &User) -> bool {
-    user.role == Role::Admin
+pub struct Admin;
+
+impl FromRequest for Admin {
+    type Error = actix_web::Error;
+    type Future = Ready<Result<Self, Self::Error>>;
+
+    fn from_request(req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
+        let result = match req.app_data::<web::Data<AppConfig>>() {
+            None => Err(ServiceError::InternalServerError("config not available".into()).into()),
+            Some(cfg) => {
+                let user = auth_from_cookie(req, cfg);
+                if user.role == Role::Admin {
+                    Ok(Admin)
+                } else {
+                    Err(ServiceError::Unauthorized.into())
+                }
+            }
+        };
+        ready(result)
+    }
 }
