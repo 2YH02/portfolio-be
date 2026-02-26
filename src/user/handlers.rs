@@ -39,7 +39,7 @@ pub async fn auth(
 
     let exp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .expect("system clock should be after UNIX epoch")
         .as_secs() as usize + 86_400;
 
     let claims = Claims { sub: dto.user.clone(), role: "Admin".to_string(), exp };

@@ -17,7 +17,10 @@ async fn main() -> std::io::Result<()> {
 
     env_logger::init_from_env(Env::default().default_filter_or("info"));
 
-    let config = AppConfig::builder().override_with(EnvSource::new()).try_build().unwrap();
+    let config = AppConfig::builder()
+        .override_with(EnvSource::new())
+        .try_build()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e.to_string()))?;
     let pool = db::init_pool(&config.pg);
     let bind_addr = config.server_addr.clone();
 
