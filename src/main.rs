@@ -32,6 +32,6 @@ async fn main() -> std::io::Result<()> {
             .configure(user::routes::init)
             .configure(blog::routes::init)
     }).bind(&bind_addr)?;
-    println!("🚀 Server running at http://localhost:8080");
+    tracing::info!("server running at http://{bind_addr}");
     server.run().await
 }
