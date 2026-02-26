@@ -9,14 +9,18 @@ use crate::user::dto::{ AuthResponse, MeRequest };
 
 pub const AUTH_COOKIE: &str = "admin_token";
 
+pub fn auth_from_cookie(req: &HttpRequest, cfg: &AppConfig) -> User {
+    match req.cookie(AUTH_COOKIE) {
+        Some(c) => User::from_jwt(c.value(), &cfg.jwt_secret),
+        None => User { username: String::new(), role: Role::Guest },
+    }
+}
+
 #[get("/me")]
 pub async fn me(req: HttpRequest, cfg: web::Data<AppConfig>) -> impl Responder {
     tracing::debug!("{} {}", req.method(), req.uri());
 
-    let user = match req.cookie(AUTH_COOKIE) {
-        Some(c) => User::from_jwt(c.value(), &cfg.jwt_secret),
-        None => User { username: String::new(), role: Role::Guest },
-    };
+    let user = auth_from_cookie(&req, &cfg);
     tracing::debug!("auth result: role={:?}", user.role);
 
     HttpResponse::Ok().json(user)

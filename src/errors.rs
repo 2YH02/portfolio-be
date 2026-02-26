@@ -1,8 +1,10 @@
 // src/errors.rs
 
 use actix_web::{ http::StatusCode, HttpResponse, ResponseError };
+use deadpool_postgres::PoolError;
 use derive_more::Display;
 use serde::Serialize;
+use tokio_pg_mapper::Error as PgMapperError;
 
 #[derive(Display, Debug)]
 pub enum ServiceError {
@@ -20,6 +22,24 @@ pub enum ServiceError {
 #[derive(Serialize)]
 struct ErrorResponse {
     error: String,
+}
+
+impl From<tokio_postgres::Error> for ServiceError {
+    fn from(e: tokio_postgres::Error) -> Self {
+        ServiceError::InternalServerError(e.to_string())
+    }
+}
+
+impl From<PgMapperError> for ServiceError {
+    fn from(e: PgMapperError) -> Self {
+        ServiceError::InternalServerError(e.to_string())
+    }
+}
+
+impl From<PoolError> for ServiceError {
+    fn from(e: PoolError) -> Self {
+        ServiceError::InternalServerError(e.to_string())
+    }
 }
 
 impl ResponseError for ServiceError {

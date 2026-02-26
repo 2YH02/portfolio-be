@@ -37,15 +37,13 @@ pub async fn list_all(
     limit: i64,
     offset: i64
 ) -> Result<PostListResponse, ServiceError> {
-    let client = pool.get().await.map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
+    let client = pool.get().await?;
 
     let count_stmt = client
-        .prepare("SELECT COUNT(*) FROM posts").await
-        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
+        .prepare("SELECT COUNT(*) FROM posts").await?;
 
     let count_row = client
-        .query_one(&count_stmt, &[]).await
-        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
+        .query_one(&count_stmt, &[]).await?;
 
     let total_count: i64 = count_row.get(0);
 
@@ -56,16 +54,14 @@ pub async fn list_all(
              ORDER BY created_at DESC
              OFFSET $1
              LIMIT  $2"
-        ).await
-        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
+        ).await?;
 
     let rows = client
-        .query(&stmt, &[&offset, &limit]).await
-        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
+        .query(&stmt, &[&offset, &limit]).await?;
 
     let posts = rows
         .into_iter()
-        .map(|row| Post::from_row_ref(&row).map_err(|e| ServiceError::InternalServerError(e.to_string())))
+        .map(|row| Post::from_row_ref(&row).map_err(ServiceError::from))
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(PostListResponse {
@@ -75,17 +71,16 @@ pub async fn list_all(
 }
 
 pub async fn get_by_id(pool: &DbPool, post_id: i32) -> Result<Post, ServiceError> {
-    let client = pool.get().await.map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
+    let client = pool.get().await?;
 
     let stmt = client
         .prepare(
             "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, created_at FROM posts WHERE id = $1"
-        ).await
-        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
+        ).await?;
 
     let row = client.query_one(&stmt, &[&post_id]).await.map_err(|_| ServiceError::NotFound)?;
 
-    Post::from_row_ref(&row).map_err(|e| ServiceError::InternalServerError(e.to_string()))
+    Ok(Post::from_row_ref(&row)?)
 }
 
 pub async fn create(pool: &DbPool, dto: CreatePost) -> Result<Post, ServiceError> {
@@ -99,15 +94,14 @@ pub async fn create(pool: &DbPool, dto: CreatePost) -> Result<Post, ServiceError
         return Err(ServiceError::BadRequest("대표 이미지를 설정해주세요".into()));
     }
 
-    let client = pool.get().await.map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
+    let client = pool.get().await?;
 
     let stmt = client
         .prepare(
             "INSERT INTO posts (title, description, body, tags, thumbnail, thumbnail_blur) \
          VALUES ($1, $2, $3, $4, $5, $6) \
          RETURNING id, title, description, body, tags, thumbnail, thumbnail_blur, created_at"
-        ).await
-        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
+        ).await?;
 
     let row = client
         .query_one(
@@ -120,14 +114,13 @@ pub async fn create(pool: &DbPool, dto: CreatePost) -> Result<Post, ServiceError
                 &dto.thumbnail,
                 &dto.thumbnail_blur,
             ]
-        ).await
-        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
+        ).await?;
 
-    Post::from_row_ref(&row).map_err(|e| ServiceError::InternalServerError(e.to_string()))
+    Ok(Post::from_row_ref(&row)?)
 }
 
 pub async fn update(pool: &DbPool, post_id: i32, dto: UpdatePost) -> Result<Post, ServiceError> {
-    let client = pool.get().await.map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
+    let client = pool.get().await?;
 
     let stmt = client
         .prepare(
@@ -138,26 +131,23 @@ pub async fn update(pool: &DbPool, post_id: i32, dto: UpdatePost) -> Result<Post
             body  = COALESCE($3, body) \
         WHERE id = $4 \
         RETURNING id, title, description, body, tags, thumbnail, thumbnail_blur, created_at"
-        ).await
-        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
+        ).await?;
 
     let row = client
         .query_one(&stmt, &[&dto.title, &dto.description, &dto.body, &post_id]).await
         .map_err(|_| ServiceError::NotFound)?;
 
-    Post::from_row_ref(&row).map_err(|e| ServiceError::InternalServerError(e.to_string()))
+    Ok(Post::from_row_ref(&row)?)
 }
 
 pub async fn delete(pool: &DbPool, post_id: i32) -> Result<(), ServiceError> {
-    let client = pool.get().await.map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
+    let client = pool.get().await?;
 
     let stmt = client
-        .prepare("DELETE FROM posts WHERE id = $1").await
-        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
+        .prepare("DELETE FROM posts WHERE id = $1").await?;
 
     client
-        .execute(&stmt, &[&post_id]).await
-        .map_err(|e| ServiceError::InternalServerError(e.to_string()))?;
+        .execute(&stmt, &[&post_id]).await?;
 
     Ok(())
 }

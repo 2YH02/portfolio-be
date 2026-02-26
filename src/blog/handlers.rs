@@ -6,19 +6,11 @@ use crate::blog::dto::{ CreatePost, UpdatePost, BlurRequest, BlurResponse };
 use crate::blog::service;
 use crate::db::DbPool;
 use crate::config::AppConfig;
-use crate::user::model::{ User, Role };
-use crate::user::handlers::{ require_admin, AUTH_COOKIE };
+use crate::user::handlers::{ require_admin, auth_from_cookie };
 
 #[derive(Debug, Deserialize)]
 struct Pagination {
     page: Option<u32>,
-}
-
-fn auth_from_cookie(req: &HttpRequest, cfg: &AppConfig) -> User {
-    match req.cookie(AUTH_COOKIE) {
-        Some(c) => User::from_jwt(c.value(), &cfg.jwt_secret),
-        None => User { username: String::new(), role: Role::Guest },
-    }
 }
 
 #[post("/posts/blur")]
