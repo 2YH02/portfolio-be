@@ -5,6 +5,7 @@ pub fn init(cfg: &mut web::ServiceConfig) {
     cfg.service(handlers::list_posts)
         .service(handlers::blur_image)
         .service(handlers::get_post)
+        .service(handlers::view_post)
         .service(handlers::create_post)
         .service(handlers::update_post)
         .service(handlers::delete_post);

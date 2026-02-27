@@ -75,13 +75,27 @@ pub async fn get_by_id(pool: &DbPool, post_id: i32) -> Result<Post, ServiceError
 
     let stmt = client
         .prepare(
-            "UPDATE posts SET view_count = view_count + 1 WHERE id = $1
-             RETURNING id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, created_at"
+            "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, created_at
+             FROM posts WHERE id = $1"
         ).await?;
 
     let row = client.query_one(&stmt, &[&post_id]).await.map_err(|_| ServiceError::NotFound)?;
 
     Ok(Post::from_row_ref(&row)?)
+}
+
+pub async fn increment_view(pool: &DbPool, post_id: i32) -> Result<i32, ServiceError> {
+    let client = pool.get().await?;
+
+    let stmt = client
+        .prepare(
+            "UPDATE posts SET view_count = view_count + 1 WHERE id = $1
+             RETURNING view_count"
+        ).await?;
+
+    let row = client.query_one(&stmt, &[&post_id]).await.map_err(|_| ServiceError::NotFound)?;
+
+    Ok(row.get(0))
 }
 
 pub async fn create(pool: &DbPool, dto: CreatePost) -> Result<Post, ServiceError> {
