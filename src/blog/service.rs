@@ -49,9 +49,9 @@ pub async fn list_all(
 
     let stmt = client
         .prepare(
-            "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, created_at
+            "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, created_at
              FROM posts
-             ORDER BY created_at DESC
+             ORDER BY created_at DESC, id DESC
              OFFSET $1
              LIMIT  $2"
         ).await?;
@@ -75,7 +75,8 @@ pub async fn get_by_id(pool: &DbPool, post_id: i32) -> Result<Post, ServiceError
 
     let stmt = client
         .prepare(
-            "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, created_at FROM posts WHERE id = $1"
+            "UPDATE posts SET view_count = view_count + 1 WHERE id = $1
+             RETURNING id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, created_at"
         ).await?;
 
     let row = client.query_one(&stmt, &[&post_id]).await.map_err(|_| ServiceError::NotFound)?;
@@ -100,7 +101,7 @@ pub async fn create(pool: &DbPool, dto: CreatePost) -> Result<Post, ServiceError
         .prepare(
             "INSERT INTO posts (title, description, body, tags, thumbnail, thumbnail_blur) \
          VALUES ($1, $2, $3, $4, $5, $6) \
-         RETURNING id, title, description, body, tags, thumbnail, thumbnail_blur, created_at"
+         RETURNING id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, created_at"
         ).await?;
 
     let row = client
@@ -130,7 +131,7 @@ pub async fn update(pool: &DbPool, post_id: i32, dto: UpdatePost) -> Result<Post
             description  = COALESCE($2, description), \
             body  = COALESCE($3, body) \
         WHERE id = $4 \
-        RETURNING id, title, description, body, tags, thumbnail, thumbnail_blur, created_at"
+        RETURNING id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, created_at"
         ).await?;
 
     let row = client

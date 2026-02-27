@@ -9,6 +9,7 @@ CREATE TABLE public.posts (
   tags             TEXT[]           NOT NULL DEFAULT '{}',
   thumbnail        TEXT             NOT NULL DEFAULT '',
   thumbnail_blur   TEXT             NOT NULL DEFAULT '/placeholder_image.png',
+  view_count       INTEGER          NOT NULL DEFAULT 0,
   created_at       TIMESTAMP        NOT NULL DEFAULT NOW()
 );
 
