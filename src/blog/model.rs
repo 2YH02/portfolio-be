@@ -13,5 +13,6 @@ pub struct Post {
     pub thumbnail: String,
     pub thumbnail_blur: String,
     pub view_count: i32,
+    pub like_count: i32,
     pub created_at: NaiveDateTime,
 }

@@ -49,7 +49,7 @@ pub async fn list_all(
 
     let stmt = client
         .prepare(
-            "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, created_at
+            "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at
              FROM posts
              ORDER BY created_at DESC, id DESC
              OFFSET $1
@@ -75,7 +75,7 @@ pub async fn get_by_id(pool: &DbPool, post_id: i32) -> Result<Post, ServiceError
 
     let stmt = client
         .prepare(
-            "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, created_at
+            "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at
              FROM posts WHERE id = $1"
         ).await?;
 
@@ -91,6 +91,41 @@ pub async fn increment_view(pool: &DbPool, post_id: i32) -> Result<i32, ServiceE
         .prepare(
             "UPDATE posts SET view_count = view_count + 1 WHERE id = $1
              RETURNING view_count"
+        ).await?;
+
+    let row = client.query_one(&stmt, &[&post_id]).await.map_err(|_| ServiceError::NotFound)?;
+
+    Ok(row.get(0))
+}
+
+pub async fn get_popular(pool: &DbPool) -> Result<Vec<Post>, ServiceError> {
+    let client = pool.get().await?;
+
+    let stmt = client
+        .prepare(
+            "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at
+             FROM posts
+             ORDER BY like_count DESC, view_count DESC, created_at DESC
+             LIMIT 5"
+        ).await?;
+
+    let rows = client.query(&stmt, &[]).await?;
+
+    let posts = rows
+        .into_iter()
+        .map(|row| Post::from_row_ref(&row).map_err(ServiceError::from))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(posts)
+}
+
+pub async fn increment_like(pool: &DbPool, post_id: i32) -> Result<i32, ServiceError> {
+    let client = pool.get().await?;
+
+    let stmt = client
+        .prepare(
+            "UPDATE posts SET like_count = like_count + 1 WHERE id = $1
+             RETURNING like_count"
         ).await?;
 
     let row = client.query_one(&stmt, &[&post_id]).await.map_err(|_| ServiceError::NotFound)?;
@@ -115,7 +150,7 @@ pub async fn create(pool: &DbPool, dto: CreatePost) -> Result<Post, ServiceError
         .prepare(
             "INSERT INTO posts (title, description, body, tags, thumbnail, thumbnail_blur) \
          VALUES ($1, $2, $3, $4, $5, $6) \
-         RETURNING id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, created_at"
+         RETURNING id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at"
         ).await?;
 
     let row = client
@@ -145,7 +180,7 @@ pub async fn update(pool: &DbPool, post_id: i32, dto: UpdatePost) -> Result<Post
             description  = COALESCE($2, description), \
             body  = COALESCE($3, body) \
         WHERE id = $4 \
-        RETURNING id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, created_at"
+        RETURNING id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at"
         ).await?;
 
     let row = client
