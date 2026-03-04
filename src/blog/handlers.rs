@@ -81,6 +81,14 @@ pub async fn view_post(pool: web::Data<DbPool>, path: web::Path<i32>, req: HttpR
     }
 }
 
+#[get("/tags")]
+pub async fn list_tags(pool: web::Data<DbPool>) -> impl Responder {
+    match service::get_tags(&pool).await {
+        Ok(tags) => { HttpResponse::Ok().json(tags) }
+        Err(e) => { e.error_response() }
+    }
+}
+
 #[get("/posts/popular")]
 pub async fn popular_posts(pool: web::Data<DbPool>) -> impl Responder {
     match service::get_popular(&pool).await {

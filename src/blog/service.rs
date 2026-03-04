@@ -98,6 +98,19 @@ pub async fn increment_view(pool: &DbPool, post_id: i32) -> Result<i32, ServiceE
     Ok(row.get(0))
 }
 
+pub async fn get_tags(pool: &DbPool) -> Result<Vec<String>, ServiceError> {
+    let client = pool.get().await?;
+
+    let stmt = client
+        .prepare(
+            "SELECT DISTINCT unnest(tags) AS tag FROM posts ORDER BY tag"
+        ).await?;
+
+    let rows = client.query(&stmt, &[]).await?;
+
+    Ok(rows.into_iter().map(|row| row.get(0)).collect())
+}
+
 pub async fn get_popular(pool: &DbPool) -> Result<Vec<Post>, ServiceError> {
     let client = pool.get().await?;
 

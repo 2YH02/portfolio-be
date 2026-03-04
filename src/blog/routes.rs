@@ -2,7 +2,8 @@ use actix_web::web;
 use crate::blog::handlers;
 
 pub fn init(cfg: &mut web::ServiceConfig) {
-    cfg.service(handlers::popular_posts)
+    cfg.service(handlers::list_tags)
+        .service(handlers::popular_posts)
         .service(handlers::list_posts)
         .service(handlers::blur_image)
         .service(handlers::get_post)
