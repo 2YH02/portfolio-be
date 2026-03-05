@@ -10,6 +10,8 @@ use crate::user::handlers::Admin;
 #[derive(Debug, Deserialize)]
 struct Pagination {
     page: Option<u32>,
+    #[serde(rename = "pageSize")]
+    page_size: Option<u32>,
 }
 
 #[post("/posts/blur")]
@@ -25,7 +27,7 @@ pub async fn list_posts(
     pool: web::Data<DbPool>,
     web::Query(pagination): web::Query<Pagination>
 ) -> impl Responder {
-    let page_size = 12;
+    let page_size = pagination.page_size.unwrap_or(8).max(1) as i64;
 
     let (limit, offset) = if let Some(page_num) = pagination.page {
         let page_num = page_num.max(1);
