@@ -46,7 +46,7 @@ pub async fn list_all(
         let total_count: i64 = count_row.get(0);
 
         let stmt = client
-            .prepare(
+            .prepare_cached(
                 "SELECT id, title, description, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at
                  FROM posts
                  WHERE $1 = ANY(tags)
@@ -62,7 +62,7 @@ pub async fn list_all(
         let total_count: i64 = count_row.get(0);
 
         let stmt = client
-            .prepare(
+            .prepare_cached(
                 "SELECT id, title, description, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at
                  FROM posts
                  ORDER BY created_at DESC, id DESC
@@ -88,7 +88,7 @@ pub async fn get_by_id(pool: &DbPool, post_id: i32) -> Result<Post, ServiceError
     let client = pool.get().await?;
 
     let stmt = client
-        .prepare(
+        .prepare_cached(
             "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at
              FROM posts WHERE id = $1"
         ).await?;
@@ -102,7 +102,7 @@ pub async fn increment_view(pool: &DbPool, post_id: i32) -> Result<i32, ServiceE
     let client = pool.get().await?;
 
     let stmt = client
-        .prepare(
+        .prepare_cached(
             "UPDATE posts SET view_count = view_count + 1 WHERE id = $1
              RETURNING view_count"
         ).await?;
@@ -116,7 +116,7 @@ pub async fn get_tags(pool: &DbPool) -> Result<Vec<String>, ServiceError> {
     let client = pool.get().await?;
 
     let stmt = client
-        .prepare(
+        .prepare_cached(
             "SELECT DISTINCT unnest(tags) AS tag FROM posts ORDER BY tag"
         ).await?;
 
@@ -125,12 +125,12 @@ pub async fn get_tags(pool: &DbPool) -> Result<Vec<String>, ServiceError> {
     Ok(rows.into_iter().map(|row| row.get(0)).collect())
 }
 
-pub async fn get_popular(pool: &DbPool) -> Result<Vec<Post>, ServiceError> {
+pub async fn get_popular(pool: &DbPool) -> Result<Vec<PostSummary>, ServiceError> {
     let client = pool.get().await?;
 
     let stmt = client
-        .prepare(
-            "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at
+        .prepare_cached(
+            "SELECT id, title, description, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at
              FROM posts
              ORDER BY like_count DESC, view_count DESC, created_at DESC
              LIMIT 5"
@@ -140,7 +140,7 @@ pub async fn get_popular(pool: &DbPool) -> Result<Vec<Post>, ServiceError> {
 
     let posts = rows
         .into_iter()
-        .map(|row| Post::from_row_ref(&row).map_err(ServiceError::from))
+        .map(|row| PostSummary::from_row_ref(&row).map_err(ServiceError::from))
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(posts)
@@ -150,7 +150,7 @@ pub async fn increment_like(pool: &DbPool, post_id: i32) -> Result<i32, ServiceE
     let client = pool.get().await?;
 
     let stmt = client
-        .prepare(
+        .prepare_cached(
             "UPDATE posts SET like_count = like_count + 1 WHERE id = $1
              RETURNING like_count"
         ).await?;
@@ -174,7 +174,7 @@ pub async fn create(pool: &DbPool, dto: CreatePost) -> Result<Post, ServiceError
     let client = pool.get().await?;
 
     let stmt = client
-        .prepare(
+        .prepare_cached(
             "INSERT INTO posts (title, description, body, tags, thumbnail, thumbnail_blur) \
          VALUES ($1, $2, $3, $4, $5, $6) \
          RETURNING id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at"
@@ -200,7 +200,7 @@ pub async fn update(pool: &DbPool, post_id: i32, dto: UpdatePost) -> Result<Post
     let client = pool.get().await?;
 
     let stmt = client
-        .prepare(
+        .prepare_cached(
             "\
         UPDATE posts SET \
             title = COALESCE($1, title), \
@@ -221,7 +221,7 @@ pub async fn delete(pool: &DbPool, post_id: i32) -> Result<(), ServiceError> {
     let client = pool.get().await?;
 
     let stmt = client
-        .prepare("DELETE FROM posts WHERE id = $1").await?;
+        .prepare_cached("DELETE FROM posts WHERE id = $1").await?;
 
     client
         .execute(&stmt, &[&post_id]).await?;
