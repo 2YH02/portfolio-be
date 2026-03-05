@@ -1,6 +1,6 @@
 use serde::{ Deserialize, Serialize };
 
-use crate::blog::model::Post;
+use crate::blog::model::PostSummary;
 
 #[derive(Debug, Deserialize)]
 pub struct CreatePost {
@@ -13,10 +13,10 @@ pub struct CreatePost {
     pub thumbnail_blur: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)] 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PostListResponse {
     pub total_count: i64,
-    pub posts: Vec<Post>,
+    pub posts: Vec<PostSummary>,
 }
 
 #[derive(Debug, Deserialize)]

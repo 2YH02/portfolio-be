@@ -6,7 +6,7 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 
 use crate::db::DbPool;
-use crate::blog::model::Post;
+use crate::blog::model::{ Post, PostSummary };
 use crate::blog::dto::{ CreatePost, UpdatePost, PostListResponse };
 use crate::errors::ServiceError;
 
@@ -47,7 +47,7 @@ pub async fn list_all(
 
         let stmt = client
             .prepare(
-                "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at
+                "SELECT id, title, description, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at
                  FROM posts
                  WHERE $1 = ANY(tags)
                  ORDER BY created_at DESC, id DESC
@@ -63,7 +63,7 @@ pub async fn list_all(
 
         let stmt = client
             .prepare(
-                "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at
+                "SELECT id, title, description, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at
                  FROM posts
                  ORDER BY created_at DESC, id DESC
                  OFFSET $1
@@ -75,7 +75,7 @@ pub async fn list_all(
 
     let posts = rows
         .into_iter()
-        .map(|row| Post::from_row_ref(&row).map_err(ServiceError::from))
+        .map(|row| PostSummary::from_row_ref(&row).map_err(ServiceError::from))
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(PostListResponse {

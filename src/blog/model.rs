@@ -16,3 +16,17 @@ pub struct Post {
     pub like_count: i32,
     pub created_at: NaiveDateTime,
 }
+
+#[derive(Debug, Serialize, Deserialize, PostgresMapper)]
+#[pg_mapper(table = "posts")]
+pub struct PostSummary {
+    pub id: i32,
+    pub title: String,
+    pub description: String,
+    pub tags: Vec<String>,
+    pub thumbnail: String,
+    pub thumbnail_blur: String,
+    pub view_count: i32,
+    pub like_count: i32,
+    pub created_at: NaiveDateTime,
+}
