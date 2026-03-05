@@ -35,29 +35,43 @@ pub async fn blur_image(url: &str) -> Result<String, ServiceError> {
 pub async fn list_all(
     pool: &DbPool,
     limit: i64,
-    offset: i64
+    offset: i64,
+    tag: Option<&str>,
 ) -> Result<PostListResponse, ServiceError> {
     let client = pool.get().await?;
 
-    let count_stmt = client
-        .prepare("SELECT COUNT(*) FROM posts").await?;
+    let (total_count, rows) = if let Some(tag) = tag {
+        let count_row = client
+            .query_one("SELECT COUNT(*) FROM posts WHERE $1 = ANY(tags)", &[&tag]).await?;
+        let total_count: i64 = count_row.get(0);
 
-    let count_row = client
-        .query_one(&count_stmt, &[]).await?;
+        let stmt = client
+            .prepare(
+                "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at
+                 FROM posts
+                 WHERE $1 = ANY(tags)
+                 ORDER BY created_at DESC, id DESC
+                 OFFSET $2
+                 LIMIT  $3"
+            ).await?;
+        let rows = client.query(&stmt, &[&tag, &offset, &limit]).await?;
+        (total_count, rows)
+    } else {
+        let count_row = client
+            .query_one("SELECT COUNT(*) FROM posts", &[]).await?;
+        let total_count: i64 = count_row.get(0);
 
-    let total_count: i64 = count_row.get(0);
-
-    let stmt = client
-        .prepare(
-            "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at
-             FROM posts
-             ORDER BY created_at DESC, id DESC
-             OFFSET $1
-             LIMIT  $2"
-        ).await?;
-
-    let rows = client
-        .query(&stmt, &[&offset, &limit]).await?;
+        let stmt = client
+            .prepare(
+                "SELECT id, title, description, body, tags, thumbnail, thumbnail_blur, view_count, like_count, created_at
+                 FROM posts
+                 ORDER BY created_at DESC, id DESC
+                 OFFSET $1
+                 LIMIT  $2"
+            ).await?;
+        let rows = client.query(&stmt, &[&offset, &limit]).await?;
+        (total_count, rows)
+    };
 
     let posts = rows
         .into_iter()

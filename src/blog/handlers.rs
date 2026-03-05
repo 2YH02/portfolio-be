@@ -12,6 +12,7 @@ struct Pagination {
     page: Option<u32>,
     #[serde(rename = "pageSize")]
     page_size: Option<u32>,
+    tag: Option<String>,
 }
 
 #[post("/posts/blur")]
@@ -37,7 +38,7 @@ pub async fn list_posts(
         (page_size, 0)
     };
 
-    match service::list_all(&pool, limit, offset).await {
+    match service::list_all(&pool, limit, offset, pagination.tag.as_deref()).await {
         Ok(data) => { HttpResponse::Ok().json(data) }
         Err(e) => { e.error_response() }
     }
