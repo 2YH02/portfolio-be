@@ -130,6 +130,35 @@ pub async fn like_post(pool: web::Data<DbPool>, path: web::Path<i32>, req: HttpR
     }
 }
 
+#[delete("/posts/{id}/like")]
+pub async fn unlike_post(pool: web::Data<DbPool>, path: web::Path<i32>, req: HttpRequest) -> impl Responder {
+    let id = path.into_inner();
+
+    let liked_ids: Vec<i32> = req
+        .cookie("liked_posts")
+        .map(|c| c.value().split(',').filter_map(|s| s.parse().ok()).collect())
+        .unwrap_or_default();
+
+    if !liked_ids.contains(&id) {
+        return HttpResponse::NoContent().finish();
+    }
+
+    match service::decrement_like(&pool, id).await {
+        Ok(like_count) => {
+            let new_ids: Vec<i32> = liked_ids.into_iter().filter(|&n| n != id).collect();
+            let cookie_value = new_ids.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(",");
+            let cookie = Cookie::build("liked_posts", cookie_value)
+                .max_age(Duration::days(7))
+                .path("/")
+                .finish();
+            HttpResponse::Ok()
+                .cookie(cookie)
+                .json(serde_json::json!({ "like_count": like_count }))
+        }
+        Err(e) => { e.error_response() }
+    }
+}
+
 #[post("/posts")]
 pub async fn create_post(
     _: Admin,

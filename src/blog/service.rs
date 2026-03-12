@@ -160,6 +160,20 @@ pub async fn increment_like(pool: &DbPool, post_id: i32) -> Result<i32, ServiceE
     Ok(row.get(0))
 }
 
+pub async fn decrement_like(pool: &DbPool, post_id: i32) -> Result<i32, ServiceError> {
+    let client = pool.get().await?;
+
+    let stmt = client
+        .prepare_cached(
+            "UPDATE posts SET like_count = GREATEST(like_count - 1, 0) WHERE id = $1
+             RETURNING like_count"
+        ).await?;
+
+    let row = client.query_one(&stmt, &[&post_id]).await.map_err(|_| ServiceError::NotFound)?;
+
+    Ok(row.get(0))
+}
+
 pub async fn create(pool: &DbPool, dto: CreatePost) -> Result<Post, ServiceError> {
     if dto.title.trim().is_empty() {
         return Err(ServiceError::BadRequest("제목을 입력해주세요".into()));
