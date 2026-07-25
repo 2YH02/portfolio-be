@@ -37,11 +37,20 @@ src/
     ├── handlers.rs  # HTTP handlers for blog CRUD
     └── routes.rs    # Route registration
 
+src/travel/
+├── model.rs     # TravelComment, TravelReaction structs
+├── dto.rs       # travel like/comment/reaction request/response shapes
+├── service.rs   # travel DB queries + bcrypt password checks
+├── handlers.rs  # HTTP handlers + cookie duplicate prevention
+└── routes.rs    # Route registration
+
 sql/
-└── schema.sql       # Table definitions + seed data
+├── schema.sql        # Table definitions + seed data
+└── travel_schema.sql # Travel likes/comments/reactions tables
 
 tests/
-└── blog.rs          # Integration tests (require live DB)
+├── blog.rs          # Blog integration tests (require live DB)
+└── travel.rs        # Travel like/comment/reaction integration tests
 ```
 
 ---
@@ -93,10 +102,12 @@ pub enum ServiceError {
 
 ## Authentication
 
-- Bearer token = base64-encoded `user:pass`
-- Parsed by `User::from_basic_auth(auth_header, admin_user, admin_pass)` in `user/model.rs`
-- Admin credentials come from `AppConfig` (`cfg.admin_user`, `cfg.admin_pass`), not from `env::var` directly
-- Admin-only handlers check `require_admin(&user)` from `user/handlers.rs`
+- Admin login uses `POST /auth` with `admin_user` / `admin_pass` from `AppConfig`.
+- Successful admin login sets the HTTP-only `admin_token` cookie containing a JWT.
+- JWT parsing is handled by `User::from_jwt(token, jwt_secret)` in `user/model.rs`.
+- Admin-only handlers use the `Admin` extractor from `user/handlers.rs`.
+- `travel/` endpoints are anonymous. Use cookies only for duplicate prevention.
+- Travel comment deletion verifies the bcrypt hash stored in `travel_comments.password`.
 
 ---
 
@@ -106,6 +117,14 @@ pub enum ServiceError {
 - Never log credential values (`admin_user`, `admin_pass`, raw auth headers, passwords)
 - Log outcomes, not secrets: `tracing::debug!("auth result: role={:?}", user.role)`
 - Log level is controlled by the `RUST_LOG` env var (default: `info`)
+
+---
+
+## CORS
+
+- `src/main.rs` enables CORS for the why2log local frontend origin: `http://localhost:5777`
+- Credentials are supported so browser requests can send duplicate-prevention cookies
+- why2log `fetch` calls that need cookies must use `credentials: "include"`
 
 ---
 
@@ -142,6 +161,8 @@ feat: 서버 에러 메시지 출력 추가
 | `PG__PASSWORD` | Postgres password | — |
 | `PG__DBNAME` | Postgres database name | — |
 | `PG__POOL__MAX_SIZE` | Connection pool size | — |
+| `JWT_SECRET` | JWT signing secret for admin cookie auth | `change-me-in-production` |
+| `COOKIE_SECURE` | Mark admin auth cookie as Secure and SameSite=None | `false` |
 
 Copy `.env.example` (if present) or create `.env` with the above for local dev.
 
@@ -159,6 +180,8 @@ RUST_LOG=debug cargo run
 # Run tests (requires running DB)
 cargo test
 ```
+
+The travel schema is mounted as `sql/travel_schema.sql`. Docker only runs init scripts when the Postgres volume is first created; run `docker compose down -v` before `docker compose up db` if a local DB volume was created before the travel tables existed.
 
 ---
 

@@ -20,10 +20,10 @@ async fn test_list_posts_success_flow() {
         .app_data(web::Data::new(pool.clone()))
         .service(list_posts);
 
-    let mut app = test::init_service(app).await;
+    let app = test::init_service(app).await;
 
     let req = test::TestRequest::get().uri("/posts").to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), StatusCode::OK, "응답 상태가 200이어야 합니다");
 

@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+actix-cors = "0.7.1"
 actix-web = "4"
+bcrypt = "0.17.1"
 confik = "0.14.0"
 deadpool-postgres = { version = "0.14.1", features = ["serde"] }
 derive_more = { version = "2.0.1", features = ["display", "error", "from"] }

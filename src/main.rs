@@ -1,15 +1,17 @@
-use actix_web::{ web, App, HttpServer, middleware::Logger };
-use confik::{ Configuration as _, EnvSource };
+use actix_cors::Cors;
+use actix_web::{App, HttpServer, http::header, middleware::Logger, web};
+use confik::{Configuration as _, EnvSource};
 use dotenvy::dotenv;
 use env_logger::Env;
 
 use crate::config::AppConfig;
 
+mod blog;
 mod config;
 mod db;
-mod user;
-mod blog;
 mod errors;
+mod travel;
+mod user;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -25,13 +27,23 @@ async fn main() -> std::io::Result<()> {
     let bind_addr = config.server_addr.clone();
 
     let server = HttpServer::new(move || {
+        let cors = Cors::default()
+            .allowed_origin("http://localhost:5777")
+            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+            .allowed_headers(vec![header::CONTENT_TYPE])
+            .supports_credentials()
+            .max_age(3600);
+
         App::new()
+            .wrap(cors)
             .wrap(Logger::default())
             .app_data(web::Data::new(config.clone()))
             .app_data(web::Data::new(pool.clone()))
             .configure(user::routes::init)
             .configure(blog::routes::init)
-    }).bind(&bind_addr)?;
+            .configure(travel::routes::init)
+    })
+    .bind(&bind_addr)?;
     tracing::info!("server running at http://{bind_addr}");
     server.run().await
 }
