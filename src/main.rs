@@ -27,12 +27,20 @@ async fn main() -> std::io::Result<()> {
     let bind_addr = config.server_addr.clone();
 
     let server = HttpServer::new(move || {
-        let cors = Cors::default()
-            .allowed_origin("http://localhost:5777")
+        let mut cors = Cors::default()
             .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
             .allowed_headers(vec![header::CONTENT_TYPE])
             .supports_credentials()
             .max_age(3600);
+
+        for origin in config
+            .cors_allowed_origins
+            .split(',')
+            .map(str::trim)
+            .filter(|origin| !origin.is_empty())
+        {
+            cors = cors.allowed_origin(origin);
+        }
 
         App::new()
             .wrap(cors)

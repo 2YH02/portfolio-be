@@ -123,6 +123,8 @@ pub enum ServiceError {
 ## CORS
 
 - `src/main.rs` enables CORS for the why2log local frontend origin: `http://localhost:5777`
+- Production why2log origins are allowed by default: `https://www.why2log.com`, `https://why2log.com`
+- Additional or replacement origins can be configured with comma-separated `CORS_ALLOWED_ORIGINS`
 - Credentials are supported so browser requests can send duplicate-prevention cookies
 - why2log `fetch` calls that need cookies must use `credentials: "include"`
 
@@ -163,6 +165,7 @@ feat: 서버 에러 메시지 출력 추가
 | `PG__POOL__MAX_SIZE` | Connection pool size | — |
 | `JWT_SECRET` | JWT signing secret for admin cookie auth | `change-me-in-production` |
 | `COOKIE_SECURE` | Mark admin auth cookie as Secure and SameSite=None | `false` |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated allowed CORS origins | `http://localhost:5777,https://www.why2log.com,https://why2log.com` |
 
 Copy `.env.example` (if present) or create `.env` with the above for local dev.
 

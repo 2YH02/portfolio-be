@@ -18,6 +18,9 @@ pub struct AppConfig {
     #[confik(default = false)]
     pub cookie_secure: bool,
 
+    #[confik(default = "http://localhost:5777,https://www.why2log.com,https://why2log.com".to_string())]
+    pub cors_allowed_origins: String,
+
     #[confik(from = DbConfig)]
     pub pg: deadpool_postgres::Config,
 }
