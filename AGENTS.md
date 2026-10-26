@@ -122,7 +122,7 @@ pub enum ServiceError {
 
 ## CORS
 
-- `src/main.rs` enables CORS for the why2log local frontend origin: `http://localhost:5777`
+- `src/main.rs` enables CORS for the why2log local frontend origin: `http://localhost:5777` and permits the guestbook client header `X-Guestbook-Token`.
 - Production why2log origins are allowed by default: `https://www.why2log.com`, `https://why2log.com`
 - Additional or replacement origins can be configured with comma-separated `CORS_ALLOWED_ORIGINS`
 - Credentials are supported so browser requests can send duplicate-prevention cookies

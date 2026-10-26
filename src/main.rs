@@ -30,7 +30,7 @@ async fn main() -> std::io::Result<()> {
     let server = HttpServer::new(move || {
         let mut cors = Cors::default()
             .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
-            .allowed_headers(vec![header::CONTENT_TYPE])
+            .allowed_headers(vec![header::CONTENT_TYPE, header::HeaderName::from_static("x-guestbook-token")])
             .supports_credentials()
             .max_age(3600);
 
