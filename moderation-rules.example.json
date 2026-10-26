@@ -1,0 +1,5 @@
+{
+  "profanity": ["sample-profanity"],
+  "sexual": ["sample-sensitive"],
+  "politics": ["sample-politics"]
+}

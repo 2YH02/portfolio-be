@@ -22,6 +22,7 @@ pub async fn list(pool: web::Data<DbPool>, path: web::Path<String>) -> impl Resp
 #[post("/guestbook/{scope}")]
 pub async fn create(
     pool: web::Data<DbPool>,
+    rules: web::Data<service::ModerationRules>,
     path: web::Path<String>,
     req: HttpRequest,
     web::Json(dto): web::Json<CreateGuestbookEntry>,
@@ -35,10 +36,11 @@ pub async fn create(
         .get("x-guestbook-token")
         .and_then(|value| value.to_str().ok())
         .filter(|value| !value.trim().is_empty())
-        .or_else(|| req.connection_info().peer_addr())
-        .unwrap_or("unknown");
-    let client_hash = service::hash_client_token(token);
-    match service::create(&pool, &scope, dto, &client_hash).await {
+        .map(str::to_owned)
+        .or_else(|| req.connection_info().peer_addr().map(str::to_owned))
+        .unwrap_or_else(|| "unknown".to_owned());
+    let client_hash = service::hash_client_token(&token);
+    match service::create(&pool, &scope, dto, &client_hash, &rules).await {
         Ok((entry, visible)) => HttpResponse::Created().json(serde_json::json!({
             "entry": entry,
             "visible": visible,

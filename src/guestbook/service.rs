@@ -13,6 +13,54 @@ const MAX_SCOPE_CHARS: usize = 64;
 const RATE_LIMIT_SECONDS: i64 = 30;
 const PUBLIC_LIMIT: i64 = 30;
 
+#[derive(Default, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ModerationRules {
+    profanity: Vec<String>,
+    sexual: Vec<String>,
+    politics: Vec<String>,
+}
+
+impl ModerationRules {
+    pub fn load(config: &crate::config::AppConfig) -> std::io::Result<Self> {
+        let json = if !config.guestbook_moderation_rules.trim().is_empty() {
+            config.guestbook_moderation_rules.clone()
+        } else {
+            match std::fs::read_to_string(&config.guestbook_moderation_rules_file) {
+                Ok(json) => json,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    tracing::warn!("guestbook moderation rules missing; submissions require review");
+                    return Ok(Self::default());
+                }
+                Err(error) => return Err(error),
+            }
+        };
+        Self::parse(&json)
+    }
+
+    fn parse(json: &str) -> std::io::Result<Self> {
+        let mut rules: Self = serde_json::from_str(json).map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid guestbook moderation JSON")
+        })?;
+        for words in [&mut rules.profanity, &mut rules.sexual, &mut rules.politics] {
+            for word in words {
+                *word = normalize_for_moderation(word);
+                if word.is_empty() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "guestbook moderation keywords must contain letters or digits",
+                    ));
+                }
+            }
+        }
+        Ok(rules)
+    }
+
+    fn is_empty(&self) -> bool {
+        self.profanity.is_empty() && self.sexual.is_empty() && self.politics.is_empty()
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 enum Moderation {
     Visible,
@@ -63,45 +111,22 @@ fn map_leetspeak(ch: char) -> char {
     }
 }
 
-fn moderate(nickname: &str, message: &str) -> Moderation {
+fn moderate(nickname: &str, message: &str, rules: &ModerationRules) -> Moderation {
+    // Review links before normalization joins URL components into false positives.
+    let lowered = message.to_ascii_lowercase();
+    if lowered.contains("http://") || lowered.contains("https://") || lowered.contains("www.") {
+        return Moderation::Pending("link");
+    }
+
     let text = normalize_for_moderation(&format!("{nickname} {message}"));
-    const BLOCKED: &[(&str, &str)] = &[
-        ("fuck", "profanity"),
-        ("shit", "profanity"),
-        ("bitch", "profanity"),
-        ("asshole", "profanity"),
-        ("cunt", "profanity"),
-        ("dick", "profanity"),
-        ("씨발", "profanity"),
-        ("시발", "profanity"),
-        ("병신", "profanity"),
-        ("개새끼", "profanity"),
-        ("존나", "profanity"),
-        ("ㅅㅂ", "profanity"),
-        ("ㅂㅅ", "profanity"),
-        ("sex", "sexual"),
-        ("porn", "sexual"),
-        ("nude", "sexual"),
-        ("xxx", "sexual"),
-        ("섹스", "sexual"),
-        ("야동", "sexual"),
-        ("성관계", "sexual"),
-        ("정치", "politics"),
-        ("정당", "politics"),
-        ("대통령", "politics"),
-        ("국회", "politics"),
-        ("선거", "politics"),
-        ("투표", "politics"),
-        ("후보", "politics"),
-        ("politic", "politics"),
-        ("election", "politics"),
-        ("president", "politics"),
-        ("government", "politics"),
-        ("democrat", "politics"),
-        ("republican", "politics"),
-    ];
-    if let Some((_, reason)) = BLOCKED.iter().find(|(word, _)| text.contains(word)) {
-        return Moderation::Blocked(reason);
+    for (words, reason) in [
+        (&rules.profanity, "profanity"),
+        (&rules.sexual, "sexual"),
+        (&rules.politics, "politics"),
+    ] {
+        if words.iter().any(|word| text.contains(word)) {
+            return Moderation::Blocked(reason);
+        }
     }
 
     let compact = message
@@ -115,12 +140,11 @@ fn moderate(nickname: &str, message: &str) -> Moderation {
     {
         return Moderation::Pending("repeated");
     }
-    let lowered = message.to_ascii_lowercase();
-    if lowered.contains("http://") || lowered.contains("https://") || lowered.contains("www.") {
-        return Moderation::Pending("link");
+    if rules.is_empty() {
+        Moderation::Pending("rules_unavailable")
+    } else {
+        Moderation::Visible
     }
-
-    Moderation::Visible
 }
 
 fn validate_entry(dto: &CreateGuestbookEntry) -> Result<(&str, &str), ServiceError> {
@@ -165,9 +189,10 @@ pub async fn create(
     scope: &str,
     dto: CreateGuestbookEntry,
     client_hash: &str,
+    rules: &ModerationRules,
 ) -> Result<(GuestbookEntryResponse, bool), ServiceError> {
     let (nickname, message) = validate_entry(&dto)?;
-    let moderation = moderate(nickname, message);
+    let moderation = moderate(nickname, message, rules);
     let (status, reason) = match moderation {
         Moderation::Blocked(reason) => {
             return Err(ServiceError::BadRequest(format!(
@@ -308,36 +333,57 @@ fn public_row(row: tokio_postgres::Row) -> GuestbookEntryResponse {
 
 #[cfg(test)]
 mod tests {
-    use super::{moderate, normalize_for_moderation, validate_scope, Moderation};
+    use super::{moderate, normalize_for_moderation, validate_scope, Moderation, ModerationRules};
 
-    #[test]
-    fn normalizes_unicode_and_common_leetspeak() {
-        assert_eq!(normalize_for_moderation("Ｆｕｃｋ 5hit"), "fuckshit");
+    fn rules() -> ModerationRules {
+        ModerationRules::parse(include_str!("../../moderation-rules.example.json")).unwrap()
     }
 
     #[test]
-    fn blocks_profanity_sexual_and_political_content() {
-        assert_eq!(moderate("낚시꾼", "fuck"), Moderation::Blocked("profanity"));
-        assert_eq!(
-            moderate("낚시꾼", "섹스 이야기"),
-            Moderation::Blocked("sexual")
-        );
-        assert_eq!(
-            moderate("낚시꾼", "선거 이야기"),
-            Moderation::Blocked("politics")
-        );
+    fn normalizes_unicode_and_common_leetspeak() {
+        assert_eq!(normalize_for_moderation("Ｔｅｓｔ 5ample"), "testsample");
+    }
+
+    #[test]
+    fn blocks_configured_categories_and_nicknames() {
+        let rules = rules();
+        for (message, reason) in [
+            ("sample-profanity", "profanity"),
+            ("sample-sensitive", "sexual"),
+            ("sample-politics", "politics"),
+        ] {
+            assert_eq!(moderate("visitor", message, &rules), Moderation::Blocked(reason));
+            assert_eq!(moderate(message, "hello", &rules), Moderation::Blocked(reason));
+        }
+        assert_eq!(moderate("visitor", "hello", &rules), Moderation::Visible);
     }
 
     #[test]
     fn puts_links_and_repeated_text_in_review() {
+        let rules = rules();
+        assert_eq!(moderate("visitor", "https://example.com", &rules), Moderation::Pending("link"));
+        assert_eq!(moderate("visitor", "aaaaaaaaaa", &rules), Moderation::Pending("repeated"));
+    }
+
+    #[test]
+    fn missing_rules_require_review() {
         assert_eq!(
-            moderate("낚시꾼", "https://example.com"),
-            Moderation::Pending("link")
+            moderate("visitor", "hello", &ModerationRules::default()),
+            Moderation::Pending("rules_unavailable")
         );
-        assert_eq!(
-            moderate("낚시꾼", "aaaaaaaaaa"),
-            Moderation::Pending("repeated")
-        );
+    }
+
+    #[test]
+    fn rejects_invalid_rules_without_exposing_values() {
+        for json in [r#"{"unexpected":[]}"#, r#"{"profanity":["---"]}"#, "invalid"] {
+            assert!(ModerationRules::parse(json).is_err());
+        }
+    }
+
+    #[test]
+    fn normalizes_configured_keywords() {
+        let rules = ModerationRules::parse(r#"{"profanity":["ＳＡＭＰＬＥ"]}"#).unwrap();
+        assert_eq!(moderate("visitor", "s.a.m.p.l.e", &rules), Moderation::Blocked("profanity"));
     }
 
     #[test]

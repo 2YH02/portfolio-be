@@ -166,6 +166,8 @@ feat: 서버 에러 메시지 출력 추가
 | `PG__POOL__MAX_SIZE` | Connection pool size | — |
 | `JWT_SECRET` | JWT signing secret for admin cookie auth | `change-me-in-production` |
 | `COOKIE_SECURE` | Mark admin auth cookie as Secure and SameSite=None | `false` |
+| `GUESTBOOK_MODERATION_RULES` | Private JSON keyword lists; overrides the rules file | empty |
+| `GUESTBOOK_MODERATION_RULES_FILE` | Local keyword JSON path, resolved from working directory | `moderation-rules.json` |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated allowed CORS origins | `http://localhost:5777,https://www.why2log.com,https://why2log.com` |
 
 Copy `.env.example` (if present) or create `.env` with the above for local dev.
@@ -195,9 +197,14 @@ The shared anonymous guestbook is implemented in `src/guestbook/` and uses `sql/
 
 - `GET /guestbook/{scope}` lists approved entries for a reusable scope such as `castmorrow`.
 - `POST /guestbook/{scope}` accepts `nickname`, `message`, and an optional honeypot `website` field. Content is normalized and classified as visible, pending, or blocked; a hashed client token and database rate limit prevent rapid repeat submissions.
+- Messages containing links are placed in pending review before keyword normalization to avoid false positives from joined URL components; they are never published automatically.
 - `GET /admin/guestbook?status=pending` and `POST /admin/guestbook/{id}/moderate` are admin-only moderation endpoints. `DELETE /admin/guestbook/{id}` soft-deletes an entry.
 
 New deployments must run the guestbook schema migration before enabling the UI. Add every client origin that uses the API to `CORS_ALLOWED_ORIGINS`; environment values override the local default.
+
+Moderation keywords are private configuration, never Rust constants or test fixtures. The ignored local `moderation-rules.json` contains `profanity`, `sexual`, and `politics` string arrays; see `moderation-rules.example.json` for harmless sample values. Existing local keywords have been preserved in the ignored file. For a fresh checkout, copy the example and replace the samples with private rules.
+
+Rules load once at startup: non-empty `GUESTBOOK_MODERATION_RULES` takes priority over `GUESTBOOK_MODERATION_RULES_FILE`. Railway should receive the JSON through its environment variable; Docker Compose forwards that variable too. The local rules file is excluded from both Git and Docker build context. Restart after edits. Missing files or empty rule sets send submissions to pending review (`rules_unavailable`); malformed JSON, unknown categories, or keywords that normalize to empty fail startup without logging rule contents. Unit tests use synthetic keywords and do not require private configuration. Previously committed keyword lists remain in Git history.
 
 ---
 

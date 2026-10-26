@@ -25,6 +25,7 @@ async fn main() -> std::io::Result<()> {
         .try_build()
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e.to_string()))?;
     let pool = db::init_pool(&config.pg);
+    let moderation_rules = web::Data::new(guestbook::service::ModerationRules::load(&config)?);
     let bind_addr = config.server_addr.clone();
 
     let server = HttpServer::new(move || {
@@ -48,6 +49,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(Logger::default())
             .app_data(web::Data::new(config.clone()))
             .app_data(web::Data::new(pool.clone()))
+            .app_data(moderation_rules.clone())
             .configure(user::routes::init)
             .configure(blog::routes::init)
             .configure(guestbook::routes::init)
