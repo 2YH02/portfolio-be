@@ -11,6 +11,7 @@ mod config;
 mod db;
 mod errors;
 mod guestbook;
+mod migrations;
 mod travel;
 mod user;
 
@@ -25,6 +26,12 @@ async fn main() -> std::io::Result<()> {
         .try_build()
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e.to_string()))?;
     let pool = db::init_pool(&config.pg);
+    migrations::run(&pool).await.map_err(|error| {
+        std::io::Error::other(format!("database migration failed: {error}"))
+    })?;
+    if std::env::args().any(|arg| arg == "--migrate-only") {
+        return Ok(());
+    }
     let moderation_rules = web::Data::new(guestbook::service::ModerationRules::load(&config)?);
     let bind_addr = config.server_addr.clone();
 

@@ -61,7 +61,9 @@ jobs:
           ADMIN_PASS: ${{ secrets.ADMIN_PASS }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: |
-          cargo test --quiet
+          cargo run --locked -- --migrate-only
+          cargo run --locked -- --migrate-only
+          cargo test --locked --quiet
 
       - name: Tear down Docker Compose
         if: always()

@@ -24,6 +24,7 @@ src/
 ├── lib.rs           # Module re-exports
 ├── config.rs        # AppConfig struct (env-bound)
 ├── db.rs            # Connection pool factory
+├── migrations.rs    # Transactional startup migrations and schema compatibility checks
 ├── errors.rs        # ServiceError enum + ResponseError impl
 ├── user/
 │   ├── model.rs     # User, Role structs + auth parsing logic
@@ -50,6 +51,7 @@ sql/
 
 tests/
 ├── blog.rs          # Blog integration tests (require live DB)
+├── migrations.rs    # Isolated database migration safety tests (require CREATEDB)
 └── travel.rs        # Travel like/comment/reaction integration tests
 ```
 
@@ -200,7 +202,19 @@ The shared anonymous guestbook is implemented in `src/guestbook/` and uses `sql/
 - Messages containing links are placed in pending review before keyword normalization to avoid false positives from joined URL components; they are never published automatically.
 - `GET /admin/guestbook?status=pending` and `POST /admin/guestbook/{id}/moderate` are admin-only moderation endpoints. `DELETE /admin/guestbook/{id}` soft-deletes an entry.
 
-New deployments must run the guestbook schema migration before enabling the UI. Add every client origin that uses the API to `CORS_ALLOWED_ORIGINS`; environment values override the local default.
+The server applies pending database migrations before listening for requests. Add every client origin that uses the API to `CORS_ALLOWED_ORIGINS`; environment values override the local default.
+
+## Database migrations
+
+- `src/migrations.rs` contains the ordered migration registry. Version 1 embeds `sql/guestbook_schema.sql`; this SQL must remain immutable after deployment. Add a new SQL file and a higher version for subsequent changes.
+- `public.portfolio_schema_migrations` records version, name, SHA-256 checksum, and application time. Changed known versions, unknown historical versions, and missing earlier versions stop startup. Newer versions are preserved with a warning to permit older applications to restart after backward-compatible additive migrations; this does not prove arbitrary future SQL is compatible.
+- All pending migrations and history writes run in one transaction under a PostgreSQL transaction advisory lock. Failure rolls back the batch and prevents the new server from listening. Multiple replicas serialize migration execution.
+- Transaction-local `lock_timeout = 5s`, `statement_timeout = 60s`, and `search_path = public, pg_catalog` bound DB lock/statement waits and fix the schema used for DDL. The statement timeout is per SQL statement, not a whole-batch or network connection deadline. Transaction settings do not leak into pooled API connections.
+- Existing guestbook tables can be adopted by version 1 through `IF NOT EXISTS`. Required column names, types, lengths, and nullability are checked before commit and on subsequent startup; incompatible columns fail without recording a successful migration. Additional columns are allowed. This check does not repair tables or verify every default, index, or constraint.
+- `cargo run -- --migrate-only` applies migrations without starting HTTP or loading moderation rules. The normal Docker command also runs migrations at startup, using the existing Railway `PG__*` settings; no production DB credentials are needed in the GitHub runner.
+- Never register `sql/schema.sql` as an operational migration: it drops the public schema and contains development seed data. Compose initialization remains local/test-only.
+- Use additive schema changes compatible with the previous running application. Application rollback does not undo committed database migrations.
+- `tests/migrations.rs` creates uniquely named temporary databases using a dedicated local/CI role with `CREATEDB`, and removes those databases after successful tests. It never resets the configured database. Failed tests can leave their test databases behind in the disposable PostgreSQL instance. Tests cover a truly fresh database, repeat runs with preserved content, failed-DDL rollback and retry, concurrent runners, newer additive history, checksum mismatch, missing history, and lock timeout. Do not point the test suite at production.
 
 Moderation keywords are private configuration, never Rust constants or test fixtures. The ignored local `moderation-rules.json` contains `profanity`, `sexual`, and `politics` string arrays; see `moderation-rules.example.json` for harmless sample values. Existing local keywords have been preserved in the ignored file. For a fresh checkout, copy the example and replace the samples with private rules.
 
