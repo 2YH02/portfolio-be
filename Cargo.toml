@@ -19,6 +19,8 @@ tokio-pg-mapper-derive = "0.2.0"
 tokio-postgres = { version = "0.7.13", features = ["with-serde_json-1", "with-chrono-0_4"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.41", features = ["serde"] }
+sha2 = "0.10"
+unicode-normalization = "0.1"
 tracing = "0.1.41"
 image = "0.25.6"
 reqwest = "0.12.16"

@@ -159,6 +159,7 @@ feat: 서버 에러 메시지 출력 추가
 | `ADMIN_PASS` | Admin password | `secret` |
 | `PG__HOST` | Postgres host | — |
 | `PG__PORT` | Postgres port | — |
+| `PG_HOST_PORT` | Docker Compose host port for Postgres; container connections remain on 5432 | `5432` |
 | `PG__USER` | Postgres user | — |
 | `PG__PASSWORD` | Postgres password | — |
 | `PG__DBNAME` | Postgres database name | — |
@@ -173,6 +174,8 @@ Copy `.env.example` (if present) or create `.env` with the above for local dev.
 
 ## Running Locally
 
+If another local Postgres instance already uses port 5432, set `PG_HOST_PORT=5433` in `.env` before starting Docker Compose. The containerized API continues to use `db:5432`; when running `cargo run` on the host, set `PG__PORT` to the selected host port as well.
+
 ```bash
 # Start DB only
 docker compose up db
@@ -185,6 +188,16 @@ cargo test
 ```
 
 The travel schema is mounted as `sql/travel_schema.sql`. Docker only runs init scripts when the Postgres volume is first created; run `docker compose down -v` before `docker compose up db` if a local DB volume was created before the travel tables existed.
+
+## Guestbook API
+
+The shared anonymous guestbook is implemented in `src/guestbook/` and uses `sql/guestbook_schema.sql`.
+
+- `GET /guestbook/{scope}` lists approved entries for a reusable scope such as `castmorrow`.
+- `POST /guestbook/{scope}` accepts `nickname`, `message`, and an optional honeypot `website` field. Content is normalized and classified as visible, pending, or blocked; a hashed client token and database rate limit prevent rapid repeat submissions.
+- `GET /admin/guestbook?status=pending` and `POST /admin/guestbook/{id}/moderate` are admin-only moderation endpoints. `DELETE /admin/guestbook/{id}` soft-deletes an entry.
+
+New deployments must run the guestbook schema migration before enabling the UI. Add every client origin that uses the API to `CORS_ALLOWED_ORIGINS`; environment values override the local default.
 
 ---
 

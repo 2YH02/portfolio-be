@@ -18,7 +18,7 @@ pub struct AppConfig {
     #[confik(default = false)]
     pub cookie_secure: bool,
 
-    #[confik(default = "http://localhost:5777,https://www.why2log.com,https://why2log.com".to_string())]
+    #[confik(default = "http://localhost:5777,https://www.why2log.com,https://why2log.com,https://castmorrow.yonghun.me,https://castmorrow.vercel.app".to_string())]
     pub cors_allowed_origins: String,
 
     #[confik(from = DbConfig)]

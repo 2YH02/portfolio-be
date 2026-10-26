@@ -473,10 +473,12 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "tokio-pg-mapper",
  "tokio-pg-mapper-derive",
  "tokio-postgres",
  "tracing",
+ "unicode-normalization",
 ]
 
 [[package]]

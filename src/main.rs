@@ -10,6 +10,7 @@ mod blog;
 mod config;
 mod db;
 mod errors;
+mod guestbook;
 mod travel;
 mod user;
 
@@ -49,6 +50,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(pool.clone()))
             .configure(user::routes::init)
             .configure(blog::routes::init)
+            .configure(guestbook::routes::init)
             .configure(travel::routes::init)
     })
     .bind(&bind_addr)?;

@@ -13,6 +13,9 @@ pub enum ServiceError {
     #[display("권한이 없습니다")]
     Unauthorized,
 
+    #[display("요청이 너무 많습니다")]
+    RateLimited,
+
     #[display("찾을 수 없습니다")]
     NotFound,
 
@@ -47,6 +50,7 @@ impl ResponseError for ServiceError {
         match *self {
             ServiceError::BadRequest(_) => StatusCode::BAD_REQUEST,
             ServiceError::Unauthorized => StatusCode::UNAUTHORIZED,
+            ServiceError::RateLimited => StatusCode::TOO_MANY_REQUESTS,
             ServiceError::NotFound => StatusCode::NOT_FOUND,
             ServiceError::InternalServerError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
