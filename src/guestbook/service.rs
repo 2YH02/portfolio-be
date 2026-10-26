@@ -1,5 +1,7 @@
 use sha2::{Digest, Sha256};
 use unicode_normalization::UnicodeNormalization;
+use tokio_pg_mapper::FromTokioPostgresRow;
+use crate::guestbook::model::GuestbookEntry;
 
 use crate::db::DbPool;
 use crate::errors::ServiceError;
@@ -255,7 +257,7 @@ pub async fn list_moderation(
     let rows = if let Some(status) = status {
         let stmt = client
             .prepare_cached(
-                "SELECT id, scope, nickname, message, status, moderation_reason, created_at
+                "SELECT id, scope, nickname, message, status, moderation_reason, client_hash, created_at
                  FROM guestbook_entries WHERE status = $1
                  ORDER BY created_at ASC, id ASC LIMIT 100",
             )
@@ -264,7 +266,7 @@ pub async fn list_moderation(
     } else {
         let stmt = client
             .prepare_cached(
-                "SELECT id, scope, nickname, message, status, moderation_reason, created_at
+                "SELECT id, scope, nickname, message, status, moderation_reason, client_hash, created_at
                  FROM guestbook_entries
                  WHERE status IN ('pending', 'blocked')
                  ORDER BY created_at ASC, id ASC LIMIT 100",
@@ -272,18 +274,21 @@ pub async fn list_moderation(
             .await?;
         client.query(&stmt, &[]).await?
     };
-    Ok(rows
+    rows
         .into_iter()
-        .map(|row| GuestbookModerationEntry {
-            id: row.get("id"),
-            scope: row.get("scope"),
-            nickname: row.get("nickname"),
-            message: row.get("message"),
-            status: row.get("status"),
-            moderation_reason: row.get("moderation_reason"),
-            created_at: row.get("created_at"),
+        .map(|row| {
+            let entry = GuestbookEntry::from_row_ref(&row)?;
+            Ok(GuestbookModerationEntry {
+                id: entry.id,
+                scope: entry.scope,
+                nickname: entry.nickname,
+                message: entry.message,
+                status: entry.status,
+                moderation_reason: entry.moderation_reason,
+                created_at: entry.created_at,
+            })
         })
-        .collect())
+        .collect()
 }
 
 pub async fn moderate_entry(
