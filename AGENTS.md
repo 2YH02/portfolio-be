@@ -224,6 +224,8 @@ Rules load once at startup: non-empty `GUESTBOOK_MODERATION_RULES` takes priorit
 
 ## Testing
 
+- `tests/guestbook.rs` uses a disposable database (requires `CREATEDB`) to verify POST persistence, pending visibility, HTTP 429, and cooldown expiry. The cooldown SQL explicitly binds seconds as `bigint` to match Rust `i64`.
+
 - Tests live in `tests/` and are integration tests — they require a real DB connection
 - Load env with `dotenv().ok()` at the top of each test
 - Build the app with `test::init_service(...)` and call with `test::TestRequest`

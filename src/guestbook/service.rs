@@ -211,7 +211,7 @@ pub async fn create(
             "SELECT last_submitted_at
              FROM guestbook_rate_limits
              WHERE client_hash = $1
-               AND last_submitted_at > NOW() - ($2 * INTERVAL '1 second')",
+               AND last_submitted_at > NOW() - ($2::bigint * INTERVAL '1 second')",
         )
         .await?;
     if client
