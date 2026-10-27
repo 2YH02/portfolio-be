@@ -206,6 +206,9 @@ The server applies pending database migrations before listening for requests. Ad
 
 ## Database migrations
 
+- `src/project/` exposes anonymous `GET /projects/{id}/likes` and `POST`/`DELETE /projects/{id}/like`. A browser UUID in the `portfolio_like_client` cookie is hashed before storage. The `(project_id, client_hash)` primary key makes repeated writes idempotent. This is browser-level duplicate prevention, not authenticated identity. Supported project IDs are validated in `project/service.rs`; add IDs there when adding projects.
+- Migration 2 embeds `sql/project_likes.sql`. Project and Games views share the same project ID and counts.
+
 - `src/migrations.rs` contains the ordered migration registry. Version 1 embeds `sql/guestbook_schema.sql`; this SQL must remain immutable after deployment. Add a new SQL file and a higher version for subsequent changes.
 - `public.portfolio_schema_migrations` records version, name, SHA-256 checksum, and application time. Changed known versions, unknown historical versions, and missing earlier versions stop startup. Newer versions are preserved with a warning to permit older applications to restart after backward-compatible additive migrations; this does not prove arbitrary future SQL is compatible.
 - All pending migrations and history writes run in one transaction under a PostgreSQL transaction advisory lock. Failure rolls back the batch and prevents the new server from listening. Multiple replicas serialize migration execution.
@@ -223,6 +226,8 @@ Rules load once at startup: non-empty `GUESTBOOK_MODERATION_RULES` takes priorit
 ---
 
 ## Testing
+
+- `tests/project.rs` uses a disposable database to verify anonymous like/unlike, duplicate and concurrent request idempotency, client and project isolation, and invalid requests.
 
 - `tests/guestbook.rs` uses a disposable database (requires `CREATEDB`) to verify POST persistence, pending visibility, HTTP 429, and cooldown expiry. The cooldown SQL explicitly binds seconds as `bigint` to match Rust `i64`.
 

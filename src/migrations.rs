@@ -7,7 +7,7 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[(
     1,
     "create_guestbook",
     include_str!("../sql/guestbook_schema.sql"),
-)];
+), (2, "create_project_likes", include_str!("../sql/project_likes.sql"))];
 
 pub async fn run(pool: &DbPool) -> Result<(), Box<dyn std::error::Error>> {
     if MIGRATIONS.iter().any(|migration| migration.0 <= 0)

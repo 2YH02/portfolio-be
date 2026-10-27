@@ -91,7 +91,7 @@ async fn concurrent_runners_apply_one_history_entry() {
     second.await.unwrap().unwrap();
     let client = database.pool.get().await.unwrap();
     assert_eq!(client.query_one("SELECT count(*) FROM public.portfolio_schema_migrations", &[])
-        .await.unwrap().get::<_, i64>(0), 1);
+        .await.unwrap().get::<_, i64>(0), 2);
     drop(client);
     database.cleanup().await;
 }
@@ -104,7 +104,7 @@ async fn newer_additive_history_allows_rollback_but_changed_known_history_fails(
     client.batch_execute(
         "ALTER TABLE guestbook_entries ADD COLUMN future_note TEXT;
          INSERT INTO public.portfolio_schema_migrations (version, name, checksum)
-         VALUES (2, 'future_additive', 'future-checksum')"
+         VALUES (3, 'future_additive', 'future-checksum')"
     ).await.unwrap();
     migrations::run(&database.pool).await.unwrap();
     client.batch_execute("UPDATE public.portfolio_schema_migrations SET checksum = 'changed' WHERE version = 1")
@@ -120,7 +120,7 @@ async fn newer_history_cannot_hide_missing_known_version() {
     migrations::run(&database.pool).await.unwrap();
     let client = database.pool.get().await.unwrap();
     client.batch_execute(
-        "UPDATE public.portfolio_schema_migrations SET version = 2"
+        "UPDATE public.portfolio_schema_migrations SET version = 3 WHERE version = 1"
     ).await.unwrap();
     assert!(migrations::run(&database.pool).await.is_err());
     drop(client);

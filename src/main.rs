@@ -13,6 +13,7 @@ mod errors;
 mod guestbook;
 mod migrations;
 mod travel;
+mod project;
 mod user;
 
 #[actix_web::main]
@@ -61,6 +62,7 @@ async fn main() -> std::io::Result<()> {
             .configure(blog::routes::init)
             .configure(guestbook::routes::init)
             .configure(travel::routes::init)
+            .configure(project::routes::init)
     })
     .bind(&bind_addr)?;
     tracing::info!("server running at http://{bind_addr}");
